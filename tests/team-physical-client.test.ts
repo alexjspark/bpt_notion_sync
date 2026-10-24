@@ -1,0 +1,2 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{physicalClientOptions}from'./physical/client.ts';
+test('physical browser client explicitly bypasses system proxy for its fresh localhost-only test context',()=>{const o=physicalClientOptions();assert.equal(o.channel,'chrome');assert.equal(o.headless,true);assert.equal(o.chromiumSandbox,true);assert.ok(o.args?.includes('--no-proxy-server'));assert.ok(!o.args?.some(v=>/remote-debugging-port|user-data-dir|no-sandbox|ignore-certificate-errors/.test(v)));});

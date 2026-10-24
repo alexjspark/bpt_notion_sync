@@ -18,6 +18,7 @@ export function createPhysicalIngress(){
    const target=physicalRoute({method:req.method,url:req.url,headers:req.headers},true),socket=client as Socket;
    const upstream=httpRequest({host:target.host,port:target.port,path:target.path,method:'GET',headers:headers(req)});
    upstream.on('upgrade',(r,remote,remoteHead)=>{
+    upstream.setTimeout(0);remote.setTimeout(0);socket.setTimeout(0);
     sockets.add(socket);sockets.add(remote as Socket);socket.write('HTTP/1.1 101 Switching Protocols\r\n'+Object.entries(r.headers).filter(([,v])=>typeof v==='string').map(([k,v])=>k+': '+v).join('\r\n')+'\r\n\r\n');
     if(head.length)remote.write(head);if(remoteHead.length)socket.write(remoteHead);socket.pipe(remote);remote.pipe(socket);
     const close=()=>{socket.destroy();remote.destroy();sockets.delete(socket);sockets.delete(remote as Socket);};socket.on('error',close);remote.on('error',close);socket.on('close',close);remote.on('close',close);

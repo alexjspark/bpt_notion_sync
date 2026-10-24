@@ -36,9 +36,10 @@ const chromium = chromiumDirectory && [
 ].find(existsSync);
 if (!chromium) { console.error('COMPANY_BROWSER_BINARY_NOT_FOUND'); process.exit(1); }
 
+let browserChild;
 const children = [];
 const sockets = new Set();
-const shutdown = createBrowserShutdown({ closeServer: () => cdpProxy.close(), sockets, children });
+const shutdown = createBrowserShutdown({ closeServer: () => cdpProxy.close(), sockets, children, getBrowser: () => browserChild, onDiagnostic: code => console.error(JSON.stringify({ code })) });
 const stop = shutdown.stop;
 function start(command, args, browserDiagnostics = false) {
   const child = spawn(command, args, { stdio: ['ignore', 'ignore', browserDiagnostics ? 'pipe' : 'ignore'], env: process.env });
@@ -53,9 +54,9 @@ function start(command, args, browserDiagnostics = false) {
     startupStderr = '';
     stop(1);
   });
-  child.on('exit', () => {
+  child.on('exit', (exitCode, signal) => {
     if (!shutdown.isStopping()) {
-      if (browserDiagnostics) console.error(JSON.stringify({ code: 'COMPANY_BROWSER_STARTUP_FAILED', observedFragments: classifyBrowserStartupFailure(startupStderr) }));
+      if (browserDiagnostics) console.error(JSON.stringify({ code: 'COMPANY_BROWSER_STARTUP_FAILED', exitCode: Number.isInteger(exitCode) ? exitCode : null, signal: ['SIGKILL','SIGTERM','SIGABRT','SIGSEGV'].includes(signal) ? signal : null, observedFragments: classifyBrowserStartupFailure(startupStderr) }));
       else console.error('COMPANY_DISPLAY_SERVICE_FAILED');
       startupStderr = '';
       stop(1);
@@ -112,7 +113,7 @@ for (let attempt = 0; !existsSync('/tmp/.X11-unix/X99'); attempt++) {
 }
 start('x11vnc', ['-display', ':99', '-listen', '127.0.0.1', '-rfbport', '5900', '-nopw', '-forever', '-shared', '-nosel', '-nobell']);
 start('websockify', ['0.0.0.0:6080', '127.0.0.1:5900']);
-start(chromium, [
+browserChild = start(chromium, [
   `--user-data-dir=${profile}`, '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=9223',
   '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
   '--disable-component-update', '--disable-sync', '--password-store=basic',

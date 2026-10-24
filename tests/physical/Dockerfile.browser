@@ -2,6 +2,8 @@ ARG BROWSER_BASE
 FROM ${BROWSER_BASE}
 USER root
 COPY --chown=pwuser:pwuser tests/physical/browser-start.mjs /app/tests/physical/browser-start.mjs
+COPY --chown=pwuser:pwuser scripts/company-browser-diagnostics.mjs /app/scripts/company-browser-diagnostics.mjs
+COPY --chown=pwuser:pwuser scripts/company-browser-shutdown.mjs /app/scripts/company-browser-shutdown.mjs
 USER pwuser
 ENV DISPLAY=:99 TEAM_PHYSICAL_TEST_ONLY=true
 CMD ["node", "/app/tests/physical/browser-start.mjs"]
