@@ -40,16 +40,11 @@ All actual runtime/runner/seccomp/key/database/operator/migration approval flags
 
 Activation requires: chosen Windows identity and backup policy; separate DB password and master pair generation/storage/use; exact cached base and built image IDs; new volume/networks/loopback ports and runner permissions; source revision and deploymentId; initial operator input; named colleague email; each person's company/MFA and own Notion integration/DB/template consent; real read-only preview; final selected-member write approval. Schedules remain OFF.
 
-## Access choice remains pending
+## Selected browser-only access — activation pending
 
-Both adapters feed the same fixed loopback ingress. Tailscale headers are discarded; the TrainerSync service session chooses the tenant.
+The user selected no colleague installation. The proposed provider adapter is Cloudflare Tunnel + Access, installed only on Windows, with exact-email OTP followed by the existing TrainerSync login. It is prepared in source and OFF by default. No Cloudflare account, tunnel, DNS/TLS rule, credential, binary, subscription or external route was created. Prior device access code is retained only for compatibility; Tailscale is excluded from the pilot proposal.
 
-- Device-installed: Tailscale Serve private tailnet HTTPS. Requires owner/colleague device installation and IdP registration, a neutral <device>.<tailnet>.ts.net domain, HTTPS/certificate consent and explicit operator+colleague→server443 policy. Remove default allow-all and any Funnel capability; do not enable public Funnel, exit-node, subnet routing or router forwarding. Tailscale Standard currently$8/user/month, two users approximately$16 before tax; Personal is noncommercial and must not be assumed for business. No subscription/install/account/Serve/ACL was started.
-- Web-only: the generic approved HTTPS proxy adapter is prepared. Provider/domain/price/TLS termination/access policy are REQUIRED approval decisions; no provider account, tunnel, public endpoint or service-specific configuration has been chosen/activated. Do not silently substitute a paid tunnel.
-
-Tailscale receives account/device/connection metadata; traffic is WireGuard-encrypted between devices and can pass through DERP as ciphertext. TLS terminates on the Windows server; neutral certificate host names appear in transparency logs. Actual provider data transit/cost must be reviewed if web-only is selected.
-
-Official references checked2026-10-24: https://tailscale.com/docs/features/tailscale-serve ; https://tailscale.com/pricing ; https://tailscale.com/docs/reference/examples/grants ; https://tailscale.com/docs/how-to/set-up-https-certificates ; https://tailscale.com/docs/reference/faq/firewall-ports ; https://tailscale.com/security
+See [web-only proposal, official evidence, data-transit review and exact required inputs/approvals](WEB-ACCESS.md). The input example now requires Cloudflare team/AUD/tunnel UUID and the operator+colleague emails in private configuration. The generator emits a review-only cloudflared.yml. Production ingress refuses to listen without the explicit web-access gate; both HTTP and WS validate Access before fixed-peer routing. This is not SSO, an active deployment, or live provider/noVNC validation.
 
 ## Rollback
 

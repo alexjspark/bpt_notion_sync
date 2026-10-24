@@ -6,18 +6,21 @@
   "requiredInputs": [
     "deploymentId",
     "current clean sourceRevision",
-    "chosen HTTPS origin and device/web access provider approval",
+    "browser-only HTTPS origin, approved Cloudflare account/domain, exact operator+colleague emails, teamName/AUD/tunnelId",
     "reviewed cached immutable runtime/browser/postgres image IDs",
     "three free explicit loopback ports"
   ],
   "generatedFiles": [
     "compose.json",
     "runner.json",
-    "access.json"
+    "access.json",
+    "cloudflared.yml (preparation only; no tunnel created)"
   ],
   "automaticWrites": false,
   "scheduleEnabled": false,
   "actualDeploymentExecuted": false,
   "actualKeysGenerated": false,
-  "actualColleagueInvited": false
+  "actualColleagueInvited": false,
+  "webAccessSelected": true,
+  "webAccessActivated": false
 }

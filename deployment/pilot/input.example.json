@@ -4,9 +4,15 @@
   "sourceRevision": null,
   "origin": null,
   "access": {
-    "mode": null,
-    "provider": null,
-    "approvalReference": null
+    "mode": "web",
+    "provider": "cloudflare-access",
+    "approvalReference": null,
+    "cloudflare": {
+      "teamName": null,
+      "audience": null,
+      "tunnelId": null,
+      "allowedEmails": null
+    }
   },
   "images": {
     "runtime": null,
