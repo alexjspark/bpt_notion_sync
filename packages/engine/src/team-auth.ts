@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID, scrypt, timingSafeEqual, createHash } from 'node:crypto';
 import { query, transaction } from '@trainer/db';
 import { TeamError, uuid } from './team-errors.ts';
-export interface TeamActor { readonly userId:string; readonly tenantId:string; readonly authVersion:number }
+export interface TeamActor { readonly userId:string; readonly tenantId:string; readonly authVersion:number; readonly sessionRef:string }
 const actors = new WeakSet<object>();
 export function assertActor(actor:TeamActor):void { if(!actors.has(actor)) throw new TeamError('AUTH_REQUIRED',401); }
 const digest=(value:string)=>createHash('sha256').update(value).digest('hex');
@@ -47,7 +47,7 @@ export class TeamAuth {
   if(!token||!/^[A-Za-z0-9_-]{43}$/.test(token))throw new TeamError('AUTH_REQUIRED',401);
   const r=await query("SELECT u.id,u.tenant_id,u.auth_version FROM team_sessions s JOIN team_users u ON(u.id=s.user_id AND u.tenant_id=s.tenant_id) JOIN team_tenants t ON t.id=u.tenant_id WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND s.auth_version=u.auth_version AND u.active AND t.active",[digest(token)]);
   if(!r.rows[0]||!uuid(r.rows[0].tenant_id))throw new TeamError('AUTH_REQUIRED',401);
-  const actor=Object.freeze({userId:r.rows[0].id,tenantId:r.rows[0].tenant_id,authVersion:r.rows[0].auth_version});actors.add(actor);return actor;
+  const actor=Object.freeze({userId:r.rows[0].id,tenantId:r.rows[0].tenant_id,authVersion:r.rows[0].auth_version,sessionRef:digest(token)});actors.add(actor);return actor;
  }
  async logout(token:string|undefined):Promise<void>{if(token&&/^[A-Za-z0-9_-]{43}$/.test(token))await query('UPDATE team_sessions SET revoked_at=now() WHERE token_hash=$1',[digest(token)]);}
 }

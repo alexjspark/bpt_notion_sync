@@ -9,15 +9,16 @@ import { auditEvent,withAuditContext } from './audit-log.ts';
 export class TeamPreviewQueue{
  constructor(private readonly connections:TeamConnections,private readonly provider:TeamPreviewProvider){}
  get providerReady(){return this.provider.available;}
+ async isReady(){return this.provider.available&&(this.provider.ready?await this.provider.ready():true);}
  async enqueue(actor:TeamActor,requestId:string){
   requireUuid(requestId);return actorTransaction(actor,async c=>{
    const row=await lockConnection(c,actor.tenantId);
    const replay=(await c.query('SELECT id FROM team_preview_runs WHERE tenant_id=$1 AND request_id=$2',[actor.tenantId,requestId])).rows[0];if(replay){const existing=(await c.query('SELECT id,status,reason_code,result FROM team_preview_runs WHERE tenant_id=$1 AND id=$2',[actor.tenantId,replay.id])).rows[0];return{id:existing.id,status:existing.status,reasonCode:existing.reason_code,result:existing.result};}
-   if(!this.provider.available)throw new TeamError('PROVIDER_UNAVAILABLE');
+   if(!await this.isReady())throw new TeamError('PROVIDER_UNAVAILABLE');
    const session=(await c.query("SELECT id FROM team_browser_sessions WHERE tenant_id=$1 AND id=$2 AND status='verified' AND expires_at>now()",[actor.tenantId,row.active_session_id])).rows[0];
    if(row.company_status!=='verified'||row.notion_status!=='verified'||!row.notion_destination||!row.company_binding||!session)throw new TeamError('NOT_READY');
    if((await c.query("SELECT 1 FROM team_preview_runs WHERE tenant_id=$1 AND status IN('queued','running')",[actor.tenantId])).rowCount)throw new TeamError('CONFLICT');
-   const id=randomUUID(),snapshot={destination:row.notion_destination,binding:row.company_binding,sessionId:session.id,secretRevision:row.secret_revision,userId:actor.userId,authVersion:actor.authVersion};
+   const id=randomUUID(),snapshot={destination:row.notion_destination,binding:row.company_binding,sessionId:session.id,secretRevision:row.secret_revision,userId:actor.userId,authVersion:actor.authVersion,sessionRef:actor.sessionRef};
    await c.query("INSERT INTO team_preview_runs(id,tenant_id,request_id,connection_id,revision,snapshot,status) VALUES($1,$2,$3,$4,$5,$6::jsonb,'queued')",[id,actor.tenantId,requestId,row.id,row.revision,JSON.stringify(snapshot)]);
    await withAuditContext({runId:id,runKind:'preview',requestId,accountId:actor.tenantId},async()=>{await auditEvent({stage:'queued',outcome:'succeeded',provider:'local',operation:'queue'});});
    return{id,status:'queued',reasonCode:null,result:null};
@@ -35,6 +36,9 @@ export class TeamPreviewQueue{
    return(await c.query('SELECT event FROM sync_audit_events WHERE run_id=$1 ORDER BY occurred_at,id LIMIT 100',[id])).rows.map(r=>r.event);
   });
  }
+ async cancel(actor:TeamActor,id:string){
+  requireUuid(id);await actorTransaction(actor,async c=>{const row=(await c.query('SELECT id FROM team_preview_runs WHERE tenant_id=$1 AND id=$2 FOR UPDATE',[actor.tenantId,id])).rows[0];if(!row)throw new TeamError('NOT_FOUND',404);await c.query("UPDATE team_preview_runs SET status='held',reason_code='USER_CANCELLED',lease_token=NULL,lease_until=NULL,updated_at=now() WHERE tenant_id=$1 AND id=$2 AND status IN('queued','running')",[actor.tenantId,id]);});return this.get(actor,id);
+ }
  /** Worker-internal only: tenant selected by a trusted dispatcher, never a public request parameter. No writes exist in this queue. */
  async runNext(tenantId:string):Promise<boolean>{
   requireUuid(tenantId);if(!this.provider.available)throw new TeamError('PROVIDER_UNAVAILABLE');
@@ -51,12 +55,12 @@ export class TeamPreviewQueue{
   await withAuditContext({runId:claimed.id,runKind:'preview',requestId:claimed.request_id,accountId:tenantId},async()=>{
    const check=()=>transaction(async c=>{
     const conn=await lockConnection(c,tenantId);
-    const active=await c.query('SELECT 1 FROM team_tenants t JOIN team_users u ON u.tenant_id=t.id WHERE t.id=$1 AND t.active AND u.active AND u.id=$2 AND u.auth_version=$3',[tenantId,claimed.snapshot.userId,claimed.snapshot.authVersion]);
+    const active=await c.query('SELECT 1 FROM team_tenants t JOIN team_users u ON u.tenant_id=t.id WHERE t.id=$1 AND t.active AND u.active AND u.id=$2 AND u.auth_version=$3 AND EXISTS(SELECT 1 FROM team_sessions a WHERE a.token_hash=$4 AND a.user_id=u.id AND a.tenant_id=t.id AND a.auth_version=u.auth_version AND a.revoked_at IS NULL AND a.expires_at>clock_timestamp()) FOR SHARE OF t,u',[tenantId,claimed.snapshot.userId,claimed.snapshot.authVersion,claimed.snapshot.sessionRef]);
     const run=(await c.query("SELECT * FROM team_preview_runs WHERE tenant_id=$1 AND id=$2 AND status='running' AND lease_token=$3 AND lease_until>now()",[tenantId,claimed.id,lease])).rows[0];
     if(!run)throw new TeamError('LEASE_LOST');
     const s=claimed.snapshot;
     if(!active.rowCount||conn.id!==claimed.connection_id||conn.revision!==claimed.revision||conn.company_status!=='verified'||conn.notion_status!=='verified'||conn.active_session_id!==s.sessionId||conn.secret_revision!==s.secretRevision||JSON.stringify(conn.company_binding)!==JSON.stringify(s.binding)||JSON.stringify(conn.notion_destination)!==JSON.stringify(s.destination))throw new TeamError('CONNECTION_CHANGED');
-    const session=(await c.query("SELECT * FROM team_browser_sessions WHERE tenant_id=$1 AND id=$2 AND status='verified' AND expires_at>now()",[tenantId,s.sessionId])).rows[0];if(!session)throw new TeamError('NOT_READY');
+    const session=(await c.query("SELECT * FROM team_browser_sessions WHERE tenant_id=$1 AND id=$2 AND status='verified' AND expires_at>clock_timestamp() AND owner_user_id=$3 AND auth_session_hash=$4",[tenantId,s.sessionId,claimed.snapshot.userId,claimed.snapshot.sessionRef])).rows[0];if(!session)throw new TeamError('NOT_READY');
     return{conn,session,token:await this.connections.tokenForRun(c,conn)};
    });
    try{
@@ -65,11 +69,13 @@ export class TeamPreviewQueue{
     const binding=validateBinding(await this.connections.company.inspect(scope));
     if(JSON.stringify(binding)!==JSON.stringify(claimed.snapshot.binding))throw new TeamError('ACCOUNT_CHANGED');
     await check();await auditEvent({stage:'collect',outcome:'started',provider:'company',operation:'read'});
-    const result=safeSummary(await this.provider.preview({connectionId:current.conn.id,revision:current.conn.revision,...scope,binding,destination:claimed.snapshot.destination,token:current.token,assertCurrent:async()=>{await check();}}));
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    const result=safeSummary(await Promise.race([this.provider.preview({connectionId:current.conn.id,revision:current.conn.revision,...scope,binding,destination:claimed.snapshot.destination,token:current.token,assertCurrent:async()=>{await check();}}),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new TeamError('LEASE_LOST')),90000);})]).finally(()=>clearTimeout(timer)));
     await check();
     await transaction(async c=>{
-     const conn=await lockConnection(c,tenantId);if(conn.revision!==claimed.revision)throw new TeamError('CONNECTION_CHANGED');
-     const saved=await c.query("UPDATE team_preview_runs SET status='succeeded',result=$4::jsonb,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE tenant_id=$1 AND id=$2 AND status='running' AND lease_token=$3 AND lease_until>now()",[tenantId,claimed.id,lease,JSON.stringify(result)]);if(!saved.rowCount)throw new TeamError('LEASE_LOST');
+     const conn=await lockConnection(c,tenantId);if(conn.revision!==claimed.revision||conn.active_session_id!==claimed.snapshot.sessionId)throw new TeamError('CONNECTION_CHANGED');
+     const auth=await c.query("SELECT 1 FROM team_browser_sessions b JOIN team_users u ON(u.tenant_id=b.tenant_id AND u.id=b.owner_user_id) JOIN team_tenants t ON t.id=b.tenant_id JOIN team_sessions a ON a.token_hash=b.auth_session_hash WHERE b.tenant_id=$1 AND b.id=$2 AND b.auth_session_hash=$3 AND b.status='verified' AND b.expires_at>clock_timestamp() AND u.active AND t.active AND a.revoked_at IS NULL AND a.expires_at>clock_timestamp() AND a.auth_version=u.auth_version AND u.auth_version=$4 FOR SHARE OF b,u,t,a",[tenantId,claimed.snapshot.sessionId,claimed.snapshot.sessionRef,claimed.snapshot.authVersion]);if(!auth.rowCount)throw new TeamError('CONNECTION_CHANGED');
+     const saved=await c.query("UPDATE team_preview_runs SET status='succeeded',result=$4::jsonb,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE tenant_id=$1 AND id=$2 AND status='running' AND lease_token=$3 AND lease_until>clock_timestamp() AND EXISTS(SELECT 1 FROM team_browser_sessions b JOIN team_users u ON(u.tenant_id=b.tenant_id AND u.id=b.owner_user_id) JOIN team_tenants t ON t.id=b.tenant_id JOIN team_sessions a ON a.token_hash=b.auth_session_hash WHERE b.tenant_id=$1 AND b.id=$5 AND b.status='verified' AND b.expires_at>clock_timestamp() AND b.auth_session_hash=$6 AND u.active AND t.active AND u.auth_version=$7 AND a.auth_version=u.auth_version AND a.user_id=u.id AND a.tenant_id=t.id AND a.revoked_at IS NULL AND a.expires_at>clock_timestamp())",[tenantId,claimed.id,lease,JSON.stringify(result),claimed.snapshot.sessionId,claimed.snapshot.sessionRef,claimed.snapshot.authVersion]);if(!saved.rowCount)throw new TeamError('LEASE_LOST');
     });
     await auditEvent({stage:'complete',outcome:'succeeded',counts:{members:result.members,mapped:result.matched,held:result.held,saved:0},operation:'execute',provider:'local'});
    }catch(error){

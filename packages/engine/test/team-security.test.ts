@@ -23,7 +23,7 @@ test('password hash verifies exact input and rejects malformed or attacker-selec
  assert.equal(await verifyTeamPassword(p,'scrypt-v999$huge$cost'),false);assert.ok(!h.includes(p));
  await assert.rejects(hashTeamPassword('short'),{code:'INVALID_INPUT'});
 });
-test('client-forged actor objects are rejected',()=>assert.throws(()=>assertActor({userId:A,tenantId:B,authVersion:1}),{code:'AUTH_REQUIRED'}));
+test('client-forged actor objects are rejected',()=>assert.throws(()=>assertActor({userId:A,tenantId:B,authVersion:1,sessionRef:'forged'}),{code:'AUTH_REQUIRED'}));
 test('runtime cache isolates identical logical inputs by tenant and connection revision',()=>{
  const c=new TeamRuntimeCache<object>(),a={tenantId:A,connectionId:C,revision:1},b={...a,tenantId:B};
  const av=c.get(a,()=>({})),bv=c.get(b,()=>({}));assert.notEqual(av,bv);assert.equal(c.get(a,()=>({})),av);

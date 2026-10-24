@@ -1,60 +1,71 @@
-# Phase 2: coworker isolation — local implementation
+# Phase 2: coworker authentication and isolated browser runtime
 
-Status: implemented local authentication/connection/preview boundaries; NOT deployed or enabled on the existing personal service.
+Status: local code and isolated tests completed. NOT enabled or deployed on the existing personal service. No real coworker/Notion/company account or physical tenant topology has been verified.
 
-## Preserved operating scope
+## Scope preserved
 
-- Existing personal service, configuration, stored keys, company profile and member data were not used or changed by these tests.
-- PHASE2_ENABLED defaults to false. When enabled, /team and /api/team use new tenant authentication; original sensitive APIs are blocked rather than falling back to ACTIVE_TRAINER_ID.
-- No member write endpoint exists in phase 2. Schedules and writes remain OFF.
-- Phase 1 general memo/survey/template/calendar synchronization remains incomplete. Phase 2 does not mark it complete.
-- No Git push, real coworker provisioning, key generation/input, browser launch, external port, domain, TLS, paid service or permission grant occurred.
+The existing personal service, saved keys, company profile, member pages and calendar were not used or modified by these tests. Phase 2 defaults OFF. Enabling its route boundary blocks legacy sensitive APIs rather than falling back to a fixed tenant. Member writes and scheduled synchronization remain OFF. General phase 1 memo/survey/template/calendar synchronization is still incomplete.
 
-## Modules and implemented contracts
+No company browser container, production network, external port, account grant, credential/master generation or Git push occurred. Ephemeral test containers and synthetic _test databases were used.
 
-- team-auth.ts: one service user per tenant in this initial version; asynchronous bounded scrypt, exact passwords, opaque random sessions stored only as SHA-256, expiry/revocation/auth-version and active tenant/user checks; five failed logins trigger a 15-minute per-login throttle. No public registration. Provisioning is an internal function, not a public API.
-- team-vault.ts: injected 32-byte AES-256-GCM master; authenticated tenant/connection/secret revision/purpose; random nonce, versioned envelope. Missing master blocks input/storage before reading the secret request body. No automatic key generation, plaintext fallback or reuse of existing personal keys.
-- team-connections.ts: server-resolved tenant, authenticated actor capability, transaction ownership checks, connection revision CAS, destination validation before persistence, stale queued/running run invalidation, own browser session lifecycle.
-- team-providers.ts: company session and preview provider contracts; official read-only Notion DB → data source → available template validation; per-tenant/connection/revision bounded runtime cache.
-- team-adapter-preview.ts: fresh per-run adapter factory reuses the existing company completeness, exact UID, unresolved Notion identity and withdrawal planner. It exposes read-only ports and returns counts only. Unknown identity rows hold duplicate-prone creates; no name matching.
-- team-preview.ts: tenant-scoped dedupe, active-run uniqueness, connection/session/destination/secret revision pinning, worker lease, account recheck before collection, guards during read, final revision fencing. Interrupted expired reads are held; no blind replay. A worker dispatcher must supply the tenant from trusted server state.
-- team-api.ts / team-boundary.ts / proxy.ts: auth and strict origin checks, bounded JSON bodies, reject unexpected scope fields/query, HTTPOnly SameSite cookie, HTTPS requirement except explicit localhost, fixed safe errors, legacy API boundary.
-- /team: login, connection status, masked Notion key form, own company session actions, preview status/reason. Unconfigured providers/master are accurately shown as unavailable.
-- 011_team_tenants.sql: new isolated tables and composite ownership FKs; provider handle and Notion data-source uniqueness; no operating DB migration was run.
-- Existing audit-log.ts sanitizes phase 2 queue/claim/collect/plan/completion with correlation IDs. Own-run log endpoint checks tenant ownership. It never returns raw provider errors, tokens, source records or personal values.
+## Implemented modules
 
-## Verification actually completed
+- team-auth / team-vault: bounded asynchronous scrypt; hashed opaque sessions; user/tenant/auth-version/session-expiry checks; operator-injected AES-256-GCM master with tenant/connection/revision/purpose AAD. No plaintext fallback or reuse of personal keys.
+- team-connections / team-browser-store: authenticated server-derived tenant; exact connection revision; browser owner user and authentication-session binding; DB outbox for allocate/probe/stop; expiry/revocation/cancellation detaches the pointer, invalidates reads and queues cleanup. The confirmed stable company account survives relogin and cannot silently switch.
+- team-browser-driver / team-browser-network: runner-only injected Docker commands, pinned image IDs, exact labels/names/profile volume, no client Docker URL/CDP/host/path/flags. A browser belongs to one tenant-internal network, with no host ports, bind/socket mounts, extra capabilities or privileged/host namespace. Only image/role-verified gateway/worker/egress peers may join. Trusted peers must also have no mounted host resources or published ports.
+- team-company-egress: HTTPS CONNECT only to admin.biz-pt.com:443. DNS must resolve entirely to public IPv4; the selected IP is used directly, with private/reserved IP, arbitrary target and redirect-based proxying absent. DNS, tunnel lifetime and concurrent slots are bounded. No traffic/body/header dump.
+- team-browser-runner: privileged allocation/stop consumer separate from web and worker. Exact tenant+session is the reconciliation key, including uncertain acknowledgements. Stop precedes allocation, previous cleanup gates profile reuse, leases fence completion, retries/backoff stop at four attempts for manual review. Profiles/networks are preserved rather than forcibly deleted.
+- team-browser-gateway: owner-authenticated HTTP and WS, configured Host/Origin, CSRF boundary, fixed server-derived VNC host:6080, no client upstream or cookie forwarding. Asset realpath boundary, bounded authorization timeout, two streams per owner/session, periodic reauthorization, revision/revocation/expiry shutdown and 15-minute stream ceiling. It creates handlers without listening on import.
+- team-owned-browser / team-readonly-runtime / team-notion-inventory: trusted worker derives only its owned CDP endpoint, opens a fresh scoped lease and reuses normal company account proof and counted UI coverage checks. Exact Notion destination/schema/admin URL/optional explicit UID are verified. Unknown URL identities hold duplicate-prone creation; no names are used for identity. Read-only planner returns counts and preserves calendar policy.
+- team-worker-dispatch / team-preview: server DB selects job tenant, not HTTP input. Queue pins connection, destination, browser, token revision and authentication session. Guards surround reads; final SQL locks/checks current authority and lease. Own-run cancellation discards stale results. Interrupted or uncertain work is held; no blind replay.
+- /team and team API: connection/lifecycle state, masked key input, readiness, owned login-screen link, reconnect/cancel and preview cancellation. Heartbeat and route configuration are required before real readiness. Missing master/provider stays blocked.
+- Existing safe audit trace is reused for preview and browser-operation IDs, phases, outcome/reason and pseudonymous tenant/account references. DB operation records carry attempt/lease/reason/state. Raw source values, keys, cookies and original errors are omitted. This does not claim that every setup/auth event has an audit entry.
 
-- 11 new unit tests: auth/vault, actor forgery, cache, official destination contract, legacy boundary, existing planner adapter scope and unknown identities.
-- 5 related pre-existing audit unit regressions also pass (16 combined).
-- 13 PostgreSQL integration tests on a dedicated database whose name ends in _test: real handlers/auth/SQL/queue/worker with synthetic A/B users and injected fake providers. Includes cross-run/log/session/destination denial, encrypted storage, queued/running invalidation, account change, throttle, revocation and lease expiry.
-- One actual Next + Chromium UI scenario, with 10 checks, in an ephemeral container without host ports. A/B login and settings readiness are exercised; blocked real providers are intentional. This is not a real company/Notion E2E.
+## Runtime separation and defaults
+
+Web imports only the DB outbox provider. It has no Docker CLI adapter or socket. The privileged Windows runner is scripts/team-browser-runner.ts and consumes allocate/stop only. The trusted container worker is scripts/team-preview-worker.ts and consumes probe/read-only preview only. Separate scripts start gateway and egress. All entrypoints require explicit runtime approval flags, an existing 012 schema and configured resources; none performs automatic migrations or creates secrets. Network listeners additionally require a Linux Docker container and are not started by module import.
+
+The dedicated browser's CDP announcement uses its own generated internal hostname. Its fixed company proxy setting applies only to newly configured team browsers; the old personal browser defaults are preserved.
+
+Intended future topology:
+
+    authenticated web/ingress -> gateway
+    privileged runner -> Docker metadata/lifecycle only
+    tenant A internal bridge: A browser + trusted gateway/worker/egress
+    tenant B internal bridge: B browser + trusted gateway/worker/egress
+    egress proxy -> company HTTPS only
+    worker -> own Notion token/destination through normal read API
+
+An initial shared-network plan was rejected during code review because VNC/CDP are unauthenticated inside a browser container. It was replaced with the tenant-internal network contract above before any launch. A read-only reviewer confirmed that the identified common-bridge path is removed in code. Physical Docker routing/firewall behavior remains untested.
+
+## Verification completed
+
+- 27 related unit/contract tests: 11 foundation cases, 11 new runtime/network/gateway/egress/Notion cases and 5 existing audit regressions.
+- 23 isolated PostgreSQL integration tests: 13 foundation/API cases plus 10 lifecycle/dispatcher cases. Synthetic A/B users, fake destinations, Mock driver/inspector only.
+- One real Next + Chromium UI scenario with 10 checks: A/B login, readiness/disabled controls, logout and legacy API boundary. It is not a real company login or live Notion E2E.
 - Root/web type checks and production web build pass.
-- An initial adapter unit fixture missed partial-inventory contract fields; corrected the fixture and reran the failing tests successfully.
-- Read-only independent review found a nested replay transaction that could exhaust the pool; replay now uses the existing transaction client.
+- Later trusted-peer/listener guard refinement passed type checks and its affected Docker contract tests.
+- Commit privacy allowlist inspection is required before the local commit; no secrets, personal bindings, artifacts or profiles are allowed.
 
-Reproducible local commands:
+Important failure cases found and fixed: replay pool exhaustion, actor lifetime beyond logout, late allocation after cancel, expired pointer blocking relogin, final-result authority race, shared browser network, SQL parameter type ambiguity, and concurrent egress cap reservation. One gateway test used an incorrect Host and was corrected; no security check was relaxed.
 
-    node --import tsx --test packages/engine/test/team-security.test.ts packages/engine/test/team-adapter-preview.test.ts apps/web/test/team-boundary.test.ts packages/engine/test/audit-log.test.ts
-    npm run typecheck
-    npm run build:web
+Tests never launch a real company browser or invoke the Docker CLI driver. Gateway/egress tests use loopback Mock upstreams inside an ephemeral test container. PG tests require TEST_DATABASE_URL ending in _test. The legacy worker/check:docker command must not be used to test this feature.
 
-PG integration and tests/team-ui.e2e.ts must run only against a dedicated TEST_DATABASE_URL ending in _test, with synthetic data. The UI test starts Next on container loopback, not a host-published port. Do not run the legacy worker/check:docker to test this feature; those commands can start the existing personal runtime.
+## Still unverified / activation prerequisites
 
-## Not yet connected / remaining implementation
+These are pending operating validation, not completed account connections:
 
-- Production company and preview providers deliberately remain Unconfigured. There is no production per-tenant Docker launcher, authenticated remote browser HTTP/WebSocket gateway, or automatic dispatcher in this change. The lifecycle and isolated adapter/queue contracts are implemented and exercised with injected providers.
-- Existing single-user browser gateway and global companyPage worker are NOT reused for coworkers.
-- No real account binding, MFA/expired login recovery, company pagination, real Notion permissions/schema/member values or coworker data access were verified.
-- Notion validation checks API access, DB/data-source parentage, title schema and template membership. It does not prove that every row belongs to the user, nor validate every phase 1 member/calendar mapping.
-- Per-login throttling is not an internet-edge abuse protection system. Account recovery, operator account-management UI, password reset/MFA and shared-tenant multi-user roles remain outside this local milestone.
-- Runtime cache primitive is isolated/tested; real providers are not wired, so there is no claim that current production adapters/caches are multi-tenant.
-- Connection/setup/auth events are not yet all persisted to a tenant audit trail. The run trace and owned run-log API are implemented; no claim of logging every event.
-- Existing-page atomic concurrent-edit protection remains unavailable. No phase 2 writes are enabled, and old one-time authorizations are not imported.
-- No deployment or physical browser/container/volume isolation validation has occurred.
+- Pinned images, trusted peers, tenant bridge routing, DNS/VNC/CDP reachability, Docker Desktop behavior and actual cleanup reconciliation.
+- Same-origin TLS ingress must route /team/browser/<session>/ HTTP and WS to the gateway. It is not configured here. TEAM_BROWSER_ROUTE_CONFIGURED remains unset by default.
+- Real company login/MFA/expiry and whether required resources use additional domains. Only the company host is permitted; additional hosts require evidence and approval.
+- Real Notion scopes/schema/template, pagination and member values. The read mapper recognizes exact expected property names/types; arbitrary coworker schemas are not auto-guessed.
+- Real gateway rendering of noVNC assets, live account binding and full live preview.
+- Operator provisioning, account recovery/reset/MFA UI and shared-tenant roles are not implemented. Initial accounts have separate tenants. No public registration exists.
+- Existing-page atomic concurrent-edit protection and general member/calendar writes remain unavailable/off. Prior one-time approvals are not copied into phase 2.
+- Diagnostic retention relies on the existing bounded audit store/pruner; operations/idempotency records are retained for reconciliation rather than pruned automatically.
 
-## Next approvals and work
+Before activation, request explicit approval for the operator master and a separate preview HMAC secret generation/storage, pinned runtime images, the tenant network/egress topology and Docker runner access, same-origin deployment, each coworker's service account/company login and own Notion connection. No secret has been generated or configured here. No existing personal key/profile is a fallback.
 
-Independent code can continue on the production browser provider/gateway/dispatcher before any real connection. Real activation additionally requires separate approval for: an operator master credential generation/storage procedure, service user provisioning, each coworker's company session/login and own Notion key/page access, and any future HTTPS/network deployment. The master must not be placed in Git or reused from preview/audit/personal secrets. Until approved and implemented, the UI stays fail-closed.
+After those approved prerequisites: own service login -> prepare owned browser -> open server login screen and sign in directly -> confirm stable company identity -> enter own Notion key/destination -> read-only validation/preview. Personal Chrome login is never copied to the server.
 
-Initial coworker flow after those prerequisites: own service login → open own server-hosted company browser and sign in directly → verify stable account binding → enter own Notion internal connection key and select own DB/data source/template → read-only validation/preview. Personal Chrome login is not transferred to the server. Public Notion OAuth is a later productization option, not implemented by this milestone.
+A manual_review cleanup is intentionally not force-replayed through the web. An operator must reconcile the exact owned resource before any future retry. Disconnect stops access; persistent tenant profiles are not permanently deleted by this implementation.

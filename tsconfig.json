@@ -5,6 +5,6 @@
     "resolveJsonModule": true, "allowImportingTsExtensions": true,
     "noEmit": true, "types": ["node"]
   },
-  "include": ["packages/**/*.ts", "apps/worker/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts", "playwright.config.ts"],
+  "include": ["packages/**/*.ts", "apps/worker/**/*.ts", "apps/team-runner/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts", "playwright.config.ts"],
   "exclude": ["node_modules", "apps/web"]
 }

@@ -7,6 +7,8 @@ import { companyCdpUpgradeRequest } from './company-browser-cdp-upgrade.mjs';
 import { classifyBrowserStartupFailure } from './company-browser-diagnostics.mjs';
 import { createBrowserShutdown } from './company-browser-shutdown.mjs';
 
+const internalHost=process.env.TEAM_BROWSER_INTERNAL_HOST??'company-browser';
+if(internalHost!=='company-browser'&&!/^ts-team-browser-[a-f0-9]{32}$/.test(internalHost))throw Error('COMPANY_INTERNAL_HOST_INVALID');
 const profile = '/var/lib/trainer-sync/company-profile';
 const profileStat = statSync(profile);
 if (profileStat.uid !== process.getuid() || (profileStat.mode & 0o077) !== 0) {
@@ -77,7 +79,7 @@ const cdpProxy = createServer((incoming, outgoing) => {
       try {
         const version = JSON.parse(body);
         const remote = new URL(version.webSocketDebuggerUrl);
-        version.webSocketDebuggerUrl = `ws://company-browser:9222${remote.pathname}`;
+        version.webSocketDebuggerUrl = `ws://${internalHost}:9222${remote.pathname}`;
         outgoing.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(version));
       } catch { outgoing.writeHead(502).end(); }
     });
@@ -114,6 +116,7 @@ start(chromium, [
   '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
   '--disable-component-update', '--disable-sync', '--password-store=basic',
   '--disable-save-password-bubble', '--disable-features=AutofillServerCommunication,PasswordManagerOnboarding',
+  ...(process.env.TEAM_COMPANY_PROXY==='true'?['--proxy-server=http://ts-team-egress:3128','--disable-quic']:[]),
   '--window-size=1600,1000', '--window-position=0,0',
   'https://admin.biz-pt.com/manage/members',
 ], true);

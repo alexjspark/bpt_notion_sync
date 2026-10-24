@@ -4,7 +4,8 @@ export interface TeamDestination{databaseId:string;dataSourceId:string;templateI
 export interface CompanyBinding{accountId:string;trainerId:string}
 export interface CompanySessionProvider{
  readonly available:boolean;
- begin(scope:{tenantId:string;sessionId:string}):Promise<{handle:string}>;
+ ready?():Promise<boolean>;
+ begin(scope:{tenantId:string;sessionId:string}):Promise<{handle:string;status?:'queued'|'login_required'}>;
  inspect(scope:{tenantId:string;sessionId:string;handle:string}):Promise<CompanyBinding>;
  revoke(scope:{tenantId:string;sessionId:string;handle:string}):Promise<void>;
 }
@@ -55,6 +56,7 @@ export function safeSummary(v:TeamPreviewSummary):TeamPreviewSummary{
 }
 export interface TeamPreviewProvider{
  readonly available:boolean;
+ ready?():Promise<boolean>;
  /** Must be read-only; each call gets its own tenant/revision credentials, never a shared default. */
  preview(input:{tenantId:string;connectionId:string;revision:number;sessionId:string;handle:string;binding:CompanyBinding;destination:TeamDestination;token:string;assertCurrent:()=>Promise<void>}):Promise<TeamPreviewSummary>;
 }

@@ -1,27 +1,30 @@
+import{DispatchedPreviewProvider}from'../../../packages/engine/src/team-worker-dispatch.ts';
+import {QueuedCompanySessionProvider}from'../../../packages/engine/src/team-browser-store.ts';
+import{readTeamCookie,TEAM_COOKIE}from'../../../packages/engine/src/team-session-cookie.ts';
 import { TeamAuth } from '../../../packages/engine/src/team-auth.ts';
 import { TeamConnections } from '../../../packages/engine/src/team-connections.ts';
 import { TeamPreviewQueue } from '../../../packages/engine/src/team-preview.ts';
 import { TeamVault } from '../../../packages/engine/src/team-vault.ts';
 import { TeamError } from '../../../packages/engine/src/team-errors.ts';
 import { UnconfiguredCompanyProvider,UnconfiguredPreviewProvider,OfficialTeamNotionValidator } from '../../../packages/engine/src/team-providers.ts';
-export const TEAM_COOKIE='trainer_team_session';
+export{TEAM_COOKIE};
 export function phase2Enabled(){return process.env.PHASE2_ENABLED==='true';}
 export { phase2Boundary } from './team-boundary.ts';
-function cookie(req:Request){const raw=req.headers.get('cookie')??'';return raw.split(';').map(v=>v.trim()).find(v=>v.startsWith(TEAM_COOKIE+'='))?.slice(TEAM_COOKIE.length+1);}
+function cookie(req:Request){return readTeamCookie(req.headers.get('cookie'));}
 export interface TeamServices{auth:TeamAuth;connections:TeamConnections;queue:TeamPreviewQueue}
 let services:TeamServices|undefined;
 export function productionTeamServices():TeamServices{
  if(!services){
   const configured=process.env.TEAM_VAULT_MASTER_KEY;
   if(configured&&!/^[a-fA-F0-9]{64}$/.test(configured))throw new TeamError('VAULT_UNCONFIGURED');
-  const vault=new TeamVault(configured?Buffer.from(configured,'hex'):undefined),company=new UnconfiguredCompanyProvider();
+  const vault=new TeamVault(configured?Buffer.from(configured,'hex'):undefined),company=process.env.TEAM_BROWSER_RUNTIME_ENABLED==='true'?new QueuedCompanySessionProvider(undefined,5000,process.env.TEAM_BROWSER_ROUTE_CONFIGURED==='true'):new UnconfiguredCompanyProvider();
   const notion=new OfficialTeamNotionValidator(async r=>{
    // This transport is not called unless a user explicitly submits a connection while an operator-configured vault is ready.
    const response=await fetch(r.url,{method:r.method,headers:r.headers as Record<string,string>,body:r.body?JSON.stringify(r.body):undefined,redirect:'error',signal:AbortSignal.timeout(15000)});
    return{status:response.status,body:await response.json()};
   });
   const connections=new TeamConnections(vault,company,notion);
-  services={auth:new TeamAuth(),connections,queue:new TeamPreviewQueue(connections,new UnconfiguredPreviewProvider())};
+  services={auth:new TeamAuth(),connections,queue:new TeamPreviewQueue(connections,process.env.TEAM_PREVIEW_RUNTIME_ENABLED==='true'?new DispatchedPreviewProvider():new UnconfiguredPreviewProvider())};
  }return services;
 }
 const json=(body:unknown,status=200,headers:Record<string,string>={})=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
@@ -49,7 +52,7 @@ export async function handleTeamRequest(req:Request,path:string[],deps?:TeamServ
   }
   if(route==='logout'&&req.method==='POST'){await s.auth.logout(token);return json({authenticated:false},200,{'Set-Cookie':TEAM_COOKIE+'=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0'+(secure?'; Secure':'')});}
   const actor=await s.auth.resolve(token);
-  if(route==='connections'&&req.method==='GET')return json({...await s.connections.status(actor),previewProviderReady:s.queue.providerReady});
+  if(route==='connections'&&req.method==='GET')return json({...await s.connections.status(actor),previewProviderReady:await s.queue.isReady()});
   if(route==='connections/notion'&&req.method==='POST'){
    if(!s.connections.vault.ready)throw new TeamError('VAULT_UNCONFIGURED');
    const b=await body(req);exact(b,['revision','token','destination']);return json(await s.connections.connectNotion(actor,b as never));
@@ -62,6 +65,7 @@ export async function handleTeamRequest(req:Request,path:string[],deps?:TeamServ
   }
   if(route==='preview'&&req.method==='POST'){const b=await body(req);exact(b,['requestId']);return json(await s.queue.enqueue(actor,b.requestId as string),202);}
   if(path.length===2&&path[0]==='runs'&&req.method==='GET')return json(await s.queue.get(actor,path[1]));
+  if(path.length===3&&path[0]==='runs'&&path[2]==='cancel'&&req.method==='POST'){const b=await body(req);exact(b,[]);return json(await s.queue.cancel(actor,path[1]));}
   if(path.length===3&&path[0]==='runs'&&path[2]==='logs'&&req.method==='GET')return json({events:await s.queue.logs(actor,path[1])});
   throw new TeamError('NOT_FOUND',404);
  }catch(e){const error=e instanceof TeamError?e:new TeamError('PREVIEW_FAILED',500);return json({code:error.code},error.status);}
