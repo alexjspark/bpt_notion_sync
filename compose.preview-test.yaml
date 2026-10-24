@@ -1,0 +1,26 @@
+# Synthetic connected-button verification only; no ports, credentials, CDP or live overlay.
+services:
+  preview-test-web:
+    profiles: [test]
+    image: trainer-sync-local-web:latest
+    environment:
+      APP_MODE: mock
+      ADAPTER_MODE: mock
+      EXTERNAL_CONNECTIONS_ENABLED: "false"
+      DATABASE_URL: postgresql://trainer:local_mock_only@test-postgres:5432/trainer_sync_test
+      ACTIVE_TRAINER_ID: trainer-demo
+      LIVE_MANUAL_TRAINER_ID: trainer-live-one
+      SEED_SYNTHETIC_DATA: "true"
+      APP_ORIGIN: http://127.0.0.1:4310
+      PUBLIC_ORIGIN: http://127.0.0.1:4310
+      NEXT_TELEMETRY_DISABLED: "1"
+    depends_on:
+      test-postgres: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    init: true
+    restart: "no"
+    networks: [private]

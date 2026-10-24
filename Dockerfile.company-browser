@@ -1,0 +1,18 @@
+# Browser binaries and OS libraries come from the same pinned official image as worker.
+FROM mcr.microsoft.com/playwright:v1.64.1-noble AS base
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends x11vnc novnc websockify \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/scripts /var/lib/trainer-sync/company-profile /run/company-login \
+    && chown -R pwuser:pwuser /app /var/lib/trainer-sync /run/company-login \
+    && chmod 0700 /var/lib/trainer-sync/company-profile /run/company-login
+WORKDIR /app
+COPY --chown=pwuser:pwuser scripts/company-browser*.mjs ./scripts/
+USER pwuser
+
+FROM base AS browser
+ENV DISPLAY=:99
+CMD ["node", "scripts/company-browser-start.mjs"]
+
+FROM base AS login
+CMD ["node", "scripts/company-browser-gateway.mjs"]

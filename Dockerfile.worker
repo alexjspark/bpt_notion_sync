@@ -1,0 +1,14 @@
+# Official Playwright image pins browser binaries and Linux system dependencies.
+FROM mcr.microsoft.com/playwright:v1.64.1-noble AS worker
+WORKDIR /app
+ENV APP_MODE=mock ADAPTER_MODE=mock EXTERNAL_CONNECTIONS_ENABLED=false NEXT_TELEMETRY_DISABLED=1
+COPY package.json package-lock.json ./
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/worker/package.json ./apps/worker/package.json
+COPY packages/core/package.json ./packages/core/package.json
+COPY packages/db/package.json ./packages/db/package.json
+COPY packages/engine/package.json ./packages/engine/package.json
+RUN npm ci --no-audit --no-fund && chown -R pwuser:pwuser /app
+COPY --chown=pwuser:pwuser . .
+USER pwuser
+CMD ["node", "--import", "tsx", "apps/worker/src/index.ts"]

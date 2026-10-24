@@ -1,0 +1,21 @@
+node_modules
+**/node_modules
+**/.next
+.git
+.env
+.env.*
+!.env.example
+.npm-cache
+backups
+test-results
+playwright-report
+.runtime
+local-config
+**/*.tsbuildinfo
+
+# Private evidence is not required in application images.
+docs
+private
+secrets
+**/notion-token.txt
+**/preview-hmac.txt

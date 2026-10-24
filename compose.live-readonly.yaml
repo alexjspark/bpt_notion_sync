@@ -1,0 +1,66 @@
+# Opt-in connection wiring only. The default compose/test commands never load it.
+# Values below are FILE PATHS; no token belongs in an env file or CLI argument.
+services:
+  web:
+    environment:
+      LIVE_MANUAL_TRAINER_ID: trainer-live-one
+  worker:
+    environment:
+      APP_MODE: mock
+      ADAPTER_MODE: mock
+      EXTERNAL_CONNECTIONS_ENABLED: "false"
+      LIVE_MANUAL_SYNC_ENABLED: "true"
+      LIVE_READONLY_CONFIG_FILE: /run/config/live-readonly.json
+      NOTION_TOKEN_FILE: /run/secrets/notion_token
+      PREVIEW_HMAC_KEY_FILE: /run/secrets/preview_hmac_key
+      COMPANY_CDP_ENDPOINT: http://company-browser:9222
+    volumes:
+      - type: bind
+        source: ${TRAINER_SYNC_READONLY_CONFIG_FILE:?Set the verified non-secret config file path}
+        target: /run/config/live-readonly.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${TRAINER_SYNC_PRIVATE_DIR:?Set the approved private directory path}/notion-token.txt
+        target: /run/secrets/notion_token
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${TRAINER_SYNC_PRIVATE_DIR:?Set the approved private directory path}/preview-hmac.txt
+        target: /run/secrets/preview_hmac_key
+        read_only: true
+        bind: {create_host_path: false}
+    networks: [private, notion-egress]
+  notion-check:
+    profiles: [notion-check]
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    command: [node, --import, tsx, scripts/check-notion-readonly.ts]
+    environment:
+      APP_MODE: mock
+      ADAPTER_MODE: mock
+      EXTERNAL_CONNECTIONS_ENABLED: "false"
+      LIVE_READONLY_CONFIG_FILE: /run/config/live-readonly.json
+      NOTION_TOKEN_FILE: /run/secrets/notion_token
+      TSX_DISABLE_CACHE: "1"
+    volumes:
+      - type: bind
+        source: ${TRAINER_SYNC_READONLY_CONFIG_FILE:?Set the verified non-secret config file path}
+        target: /run/config/live-readonly.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${TRAINER_SYNC_PRIVATE_DIR:?Set the approved private directory path}/notion-token.txt
+        target: /run/secrets/notion_token
+        read_only: true
+        bind: {create_host_path: false}
+    init: true
+    restart: "no"
+    read_only: true
+    networks: [notion-egress]
+networks:
+  notion-egress:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"

@@ -1,0 +1,12 @@
+import test from'node:test';import assert from'node:assert/strict';
+import{createContactSaveTransport,validateContactTargets,assertSourceContacts}from'../src/oneoff-contact-scope.ts';
+const targets=[{uid:'900001',pageId:'33333333-3333-4333-8333-333333333333',name:'SYNTHETIC_MEMBER_A',fields:['phone','email']as('phone'|'email')[]},{uid:'900002',pageId:'44444444-4444-4444-8444-444444444444',name:'SYNTHETIC_MEMBER_B',fields:['phone','email']as('phone'|'email')[]}];
+const s={databaseId:'11111111-1111-4111-8111-111111111111',dataSourceId:'22222222-2222-4222-8222-222222222222',name:'title',status:'status',admin:'url',phone:'phone',email:'email',firstTraining:'date'};
+const values={uid:'900001',name:'SYNTHETIC_MEMBER_A',phone:'00000000000',email:'test@trainersync.invalid'};
+test('oneoff scope requires exactly two distinct targets matching explicit private approval and phone/email only',()=>{assert.equal(validateContactTargets(targets,targets).length,2);for(const bad of [[targets[0]], [targets[0],targets[0]],targets.map(t=>({...t,fields:['phone']})),targets.map(t=>({...t,uid:'123'}))])assert.throws(()=>validateContactTargets(bad,targets));assert.throws(()=>assertSourceContacts({...values,phone:'010-****-0000'}));});
+test('oneoff transport permits intended contacts once, denies real scope expansion and sends no secret body to audit',async()=>{
+ let sent=0,consumed=0;const transport=createContactSaveTransport({destination:s,approvedTargets:targets,schema:()=>s,targets,intended:new Map([['900001',values]]),delegate:async()=>{sent++;return{status:200,body:{}};},consumeWrite:async(page,fields)=>{assert.equal(page,targets[0]!.pageId);assert.deepEqual(fields,['phone','email']);consumed++;}});
+ const request={method:'PATCH'as const,url:'https://api.notion.com/v1/pages/'+targets[0]!.pageId,headers:{},body:{properties:{phone:{phone_number:values.phone},email:{email:values.email}}}};
+ for(const bad of [{...request,url:'https://api.notion.com/v1/pages/another'},{...request,body:{properties:{status:{select:{name:'new'}}}}},{...request,body:{properties:{phone:{phone_number:'11111111111'}}}},{...request,method:'POST'as const,url:'https://api.notion.com/v1/pages'},{...request,body:{in_trash:true}},{...request,url:request.url+'?unapproved=1'}])await assert.rejects(transport(bad));
+ assert.equal(sent,0);await transport(request);assert.equal(sent,1);assert.equal(consumed,1);await assert.rejects(transport(request));assert.equal(sent,1);
+});

@@ -1,0 +1,49 @@
+# Merge only when explicitly starting the temporary, approved connection tools:
+# docker compose -f compose.yaml -f compose.connections.yaml --profile connections ...
+services:
+  company-browser:
+    profiles: [connections]
+    build:
+      context: .
+      dockerfile: Dockerfile.company-browser
+      target: browser
+    volumes:
+      - company-profile:/var/lib/trainer-sync/company-profile
+    shm_size: 1gb
+    init: true
+    restart: "no"
+    networks: [private, company-egress]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:9223/json/version').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    # CDP 9222 and VNC 6080 are reachable only through Docker networks.
+    # Neither is published on a host interface.
+  company-login:
+    profiles: [connections]
+    build:
+      context: .
+      dockerfile: Dockerfile.company-browser
+      target: login
+    ports:
+      - "127.0.0.1:4312:4312"
+    tmpfs:
+      - /run/company-login:uid=1001,gid=1001,mode=0700
+    environment:
+      COMPANY_LOGIN_ORIGIN: http://127.0.0.1:4312
+      COMPANY_LOGIN_UPSTREAM_HOST: company-browser
+      COMPANY_LOGIN_UPSTREAM_PORT: "6080"
+    depends_on:
+      company-browser: {condition: service_healthy}
+    init: true
+    restart: "no"
+    networks: [private, frontend]
+volumes:
+  company-profile:
+    name: trainer-sync-company-profile-trainer-live-one
+networks:
+  company-egress:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"

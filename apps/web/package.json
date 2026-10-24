@@ -1,0 +1,19 @@
+{
+  "name": "@trainer/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 4310",
+    "build": "next build --webpack",
+    "start": "next start --hostname 0.0.0.0 --port 3000"
+  },
+  "dependencies": {
+    "next": "16.4.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "@trainer/core": "0.1.0",
+    "@trainer/db": "0.1.0",
+    "@trainer/engine": "0.1.0"
+  }
+}

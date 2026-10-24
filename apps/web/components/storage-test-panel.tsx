@@ -1,0 +1,26 @@
+'use client';
+import{useCallback,useEffect,useState}from'react';
+type Step={passed?:boolean;changedFields?:string[];inTrash?:boolean};
+type Run={id:string;status:string;phase:string;pageUrl:string|null;errorCode:string|null;report:{realMemberWrites?:number;steps?:Record<string,Step>;concurrency?:{status?:string;safetyGate?:string;mode?:string;cleanup?:{inTrash?:boolean}}}};
+type Snapshot={mode:'isolated_storage_test';canQueue:boolean;run:Run|null;realMemberWritesEnabled:false;scheduledExecution:false};
+const names:Record<string,string>={create:'\uc0dd\uc131\uacfc \ud544\ub4dc \uc800\uc7a5 \uc7ac\uc870\ud68c',replay:'\ub3d9\uc77c \uc785\ub825 \uc7ac\uc2e4\ud589 \u00b7 \uc911\ubcf5 \uc5c6\uc74c',manualPreservation:'\uc218\ub3d9 \ud544\ub4dc\u00b7\ubcf8\ubb38 \ubcf4\uc874',fillEmpty:'\ube48 \ud5c8\uc6a9 \ud544\ub4dc\ub9cc \ucc44\uc6b0\uae30',cleanup:'TEST \ud398\uc774\uc9c0 \ubcf5\uad6c \uac00\ub2a5 \ud734\uc9c0\ud1b5 \ud655\uc778'};
+export function StorageTestPanel(){
+ const[snapshot,setSnapshot]=useState<Snapshot|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(false);
+ const refresh=useCallback(async()=>{try{const r=await fetch('/api/storage-test',{cache:'no-store'});if(!r.ok)throw new Error('unavailable');const s=await r.json();if(s.mode!=='isolated_storage_test'||s.realMemberWritesEnabled!==false||s.scheduledExecution!==false)throw new Error('invalid');setSnapshot(s);setError(false);}catch{setError(true);}},[]);
+ useEffect(()=>{void refresh();},[refresh]);const active=snapshot?.run&&['queued','running'].includes(snapshot.run.status);
+ useEffect(()=>{if(!active)return;const timer=setInterval(()=>void refresh(),2000);return()=>clearInterval(timer);},[active,refresh]);
+ async function start(){if(busy||active)return;setBusy(true);try{const r=await fetch('/api/storage-test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'run_isolated_storage_test'})});if(!r.ok)throw new Error('queue');await refresh();}catch{setError(true);}finally{setBusy(false);}}
+ const run=snapshot?.run;const cleanupConfirmed=run?.report.concurrency?run.report.concurrency.cleanup?.inTrash===true:run?.report.steps?.cleanup?.inTrash===true;
+ return <section id="storage-test" className="section card" aria-labelledby="storage-test-heading"><h2 id="storage-test-heading">{'TEST TrainerSync \uaca9\ub9ac \uc800\uc7a5 \uac80\uc0ac'}</h2>
+ <p>{'\uac00\uc0c1 \uac12\uc758 TEST \ud398\uc774\uc9c0 \ud55c \uac1c\ub9cc \uc0dd\uc131\ud558\uc5ec \uc800\uc7a5\u00b7\uc7ac\uc2e4\ud589\u00b7\uae30\uc874\uac12 \ubcf4\uc874\uc744 \uac80\uc0ac\ud55c \ub4a4 \ud734\uc9c0\ud1b5\uc73c\ub85c \uc62e\uae41\ub2c8\ub2e4. \uc2e4\ud68c\uc6d0\u00b7\uc6d0\ubcf8 \ud15c\ud50c\ub9bf\u00b7\uc77c\uc815\uc740 \uc218\uc815\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.'}</p>
+ <p>{'\uc774 \uac80\uc0ac\uc5d0\ub9cc TEST \uc2e4\uc81c \uc800\uc7a5\uc744 \uc0ac\uc6a9\ud569\ub2c8\ub2e4. \uc77c\ubc18 \ud68c\uc6d0 \uc4f0\uae30\uc640 \uc608\uc57d \uc2e4\ud589\uc740 OFF\uc785\ub2c8\ub2e4.'}</p>
+ <button className="button secondary" type="button" disabled={busy||!!active||!snapshot?.canQueue||run?.status==='succeeded'} onClick={()=>void start()}>{run?.status==='succeeded'?'\uaca9\ub9ac \uc800\uc7a5 \uac80\uc0ac \uc644\ub8cc':active?'\uaca9\ub9ac \uac80\uc0ac \uc2e4\ud589 \uc911':'TEST \uc800\uc7a5\u00b7\ubcf4\uc874\u00b7\ud734\uc9c0\ud1b5 \uac80\uc0ac \uc2e4\ud589'}</button>
+ {error&&<p role="alert">{'\uac80\uc0ac \uc0c1\ud0dc\ub97c \ud655\uc778\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4. \uc0c8\ub85c\uace0\uce68 \ud6c4 \ud604\uc7ac \uacb0\uacfc\ub97c \ud655\uc778\ud558\uc138\uc694.'}</p>}
+ {run&&<div role="status"><p>{run.status==='succeeded'?'\uaca9\ub9ac \uc800\uc7a5 \uac80\uc0ac \uc644\ub8cc':run.status==='failed'||run.status==='needs_review'?'\uaca9\ub9ac \uac80\uc0ac \uc911\ub2e8 \u00b7 \uc2e4\ud68c\uc6d0 \uc4f0\uae30 \uc5c6\uc74c':'\uaca9\ub9ac \uac80\uc0ac \uc2e4\ud589 \uc911'}</p>
+ <ul>{Object.entries(names).map(([key,label])=><li key={key}>{label}{': '}{run.report.steps?.[key]?.passed?'\ud1b5\uacfc':'\ub300\uae30'}</li>)}</ul>
+ <p>{'\uc2e4\ud68c\uc6d0 \uc4f0\uae30: '}{run.report.realMemberWrites??0}{'\uac74 \u00b7 \uc608\uc57d \uc2e4\ud589 OFF'}</p>
+ {run.pageUrl&&<a href={run.pageUrl} target="_blank" rel="noreferrer">{'TEST Notion \ud398\uc774\uc9c0'}{cleanupConfirmed?' (\ud734\uc9c0\ud1b5 \ud655\uc778\ub428)':''}</a>}
+ {run.report.concurrency&&<div role="status"><p>{"\ub3d9\uc2dc \ud3b8\uc9d1 \uac80\uc0ac: \uae30\uc874 \ube48 \ud544\ub4dc \ubcf4\uc644\uc740 \uc548\uc804 \ubcf4\uc7a5\uc744 \uc704\ud574 \ubcf4\ub958\ud569\ub2c8\ub2e4."}</p><p>{run.report.concurrency.mode==='protected'&&run.report.concurrency.status==='completed'?"\uc218\ub3d9 \ud3b8\uc9d1 \ubcf4\uc874 \u00b7 \uc11c\ube44\uc2a4 PATCH 0\uac74 \u00b7 TEST \ud734\uc9c0\ud1b5 \uc7ac\uc870\ud68c \ud655\uc778":"\uae30\uc874 \ubc29\uc2dd\uc758 \ub3d9\uc2dc \ud3b8\uc9d1 \ub36e\uc5b4\uc4f0\uae30 \uc704\ud5d8\uc744 \ud655\uc778\ud588\uc2b5\ub2c8\ub2e4."}</p><p>{"\uc774\uc804 5\ub2e8\uacc4 \ud1b5\uacfc\ub294 \uc21c\ucc28 \ud3b8\uc9d1 \uac80\uc0ac \uacb0\uacfc\uc785\ub2c8\ub2e4. \uc2e4\ud68c\uc6d0 \uc800\uc7a5\uc740 \uc2e4\ud589\ud558\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4."}</p></div>}
+ {run.errorCode&&<p>{'\uc911\ub2e8 \ucf54\ub4dc: '}{run.errorCode}</p>}</div>}
+ </section>;
+}

@@ -1,0 +1,7 @@
+# OPTIONAL PROPOSAL ONLY. Do not include until the user approves this specific
+# container security-profile change and the official profile download is verified.
+# This file is never loaded by the normal compose.yaml/check:docker commands.
+services:
+  company-browser:
+    security_opt:
+      - seccomp=./docker/playwright-seccomp.json

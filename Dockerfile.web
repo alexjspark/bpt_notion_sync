@@ -1,0 +1,20 @@
+FROM node:24-bookworm-slim AS build
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY package.json package-lock.json ./
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/worker/package.json ./apps/worker/package.json
+COPY packages/core/package.json ./packages/core/package.json
+COPY packages/db/package.json ./packages/db/package.json
+COPY packages/engine/package.json ./packages/engine/package.json
+RUN npm ci --no-audit --no-fund
+COPY . .
+RUN npm run build:web
+
+FROM node:24-bookworm-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 APP_MODE=mock ADAPTER_MODE=mock EXTERNAL_CONNECTIONS_ENABLED=false
+COPY --from=build --chown=node:node /app /app
+USER node
+EXPOSE 3000
+CMD ["node", "--import", "tsx", "scripts/start-web.ts"]

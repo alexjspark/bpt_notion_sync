@@ -1,0 +1,19 @@
+{
+  "repository": "https://github.com/microsoft/playwright",
+  "commit": "ca7ca36145b84183cf423c2a099bd7e9cd8b1cb3",
+  "method": "user-downloaded public files; local copies verified against official GitHub tree metadata",
+  "profile": {
+    "sourcePath": "utils/docker/seccomp_profile.json",
+    "file": "playwright-seccomp.json",
+    "bytes": 12997,
+    "gitBlobSha1": "fddc05fb520affb145404e6f6f647ca96af8087d",
+    "sha256": "cc3e61cabda6bbc1e53e54d27ba4d55a9d3be829b6dd1a596f4a7b31b1cc7849"
+  },
+  "license": {
+    "sourcePath": "LICENSE",
+    "file": "PLAYWRIGHT-LICENSE",
+    "bytes": 11601,
+    "gitBlobSha1": "df112373eb2e23e459bf93ec412be1764dc5a38b",
+    "sha256": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb"
+  }
+}
