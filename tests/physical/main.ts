@@ -7,7 +7,7 @@ import{TeamVault}from'../../packages/engine/src/team-vault.ts';import{TeamConnec
 import{TeamPreviewQueue}from'../../packages/engine/src/team-preview.ts';import{TeamBrowserRunner}from'../../packages/engine/src/team-browser-runner.ts';
 import{TeamWorkerDispatcher,runtimeHeartbeat}from'../../packages/engine/src/team-worker-dispatch.ts';import{runLoop,listenService}from'../../apps/team-runner/entrypoints.ts';
 import{DockerBrowserDriver}from'../../packages/engine/src/team-browser-driver.ts';import{peerName}from'../../packages/engine/src/team-browser-network.ts';import{approvedDockerCli}from'../../apps/team-runner/docker-cli.ts';
-import{physicalJournalStore}from'./journal-file.ts';import{guardedPhysicalDocker}from'./runner-guard.ts';
+import{withApprovedPhysicalSeccomp}from'./seccomp.ts';import{physicalJournalStore}from'./journal-file.ts';import{guardedPhysicalDocker}from'./runner-guard.ts';
 async function listenLocalRole(config:PhysicalConfig,service:ReturnType<typeof createPhysicalWeb>|ReturnType<typeof createPhysicalIngress>,port:number){
  if(process.platform!=='linux'||!existsSync('/.dockerenv'))throw Error('PHYSICAL_CONTAINER_REQUIRED');
  await new Promise<void>(r=>service.server.listen(port,'0.0.0.0',r));
@@ -23,7 +23,7 @@ export async function physicalMain(env:Record<string,string|undefined>){
  if(config.role==='egress'){await listenService('egress',createPhysicalDenyEgress(),3128);return;}
  if(config.role==='runner'){
   const peers=(['gateway','worker','egress']as const).map(role=>({role,name:peerName(role),imageId:env['PHYSICAL_'+role.toUpperCase()+'_IMAGE_ID']??''}));
-  const cli=guardedPhysicalDocker(config.runId,physicalJournalStore(process.cwd(),config.runId),approvedDockerCli(env.TEAM_DOCKER_RUNNER_APPROVED==='true'));
+  const cli=guardedPhysicalDocker(config.runId,physicalJournalStore(process.cwd(),config.runId),withApprovedPhysicalSeccomp(approvedDockerCli(env.TEAM_DOCKER_RUNNER_APPROVED==='true')));
   const driver=new DockerBrowserDriver(cli,env.PHYSICAL_BROWSER_IMAGE_ID??'',peers),runner=new TeamBrowserRunner(driver,{inspect:async()=>{throw Error('PHYSICAL_RUNNER_NO_ACCOUNT_READ');}},['allocate','stop']);
   await runLoop('runner',async()=>{await verifyPhysicalMarker(config);await sweepExpiredBrowsers();await runner.runOnce();});return;
  }
