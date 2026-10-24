@@ -1,0 +1,12 @@
+# Offline preparation only. Caller must verify these two tags already resolve to recorded local image IDs.
+ARG BROWSER_BASE
+ARG RUNTIME_BASE
+FROM ${BROWSER_BASE} AS novnc
+FROM ${RUNTIME_BASE}
+USER root
+COPY --from=novnc /usr/share/novnc /usr/share/novnc
+COPY --chown=pwuser:pwuser . /app
+WORKDIR /app
+USER pwuser
+# No install, download, port publication, credentials or auto-start.
+CMD ["node", "--import", "tsx", "tests/physical/main.ts"]

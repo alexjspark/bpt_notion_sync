@@ -69,3 +69,7 @@ Before activation, request explicit approval for the operator master and a separ
 After those approved prerequisites: own service login -> prepare owned browser -> open server login screen and sign in directly -> confirm stable company identity -> enter own Notion key/destination -> read-only validation/preview. Personal Chrome login is never copied to the server.
 
 A manual_review cleanup is intentionally not force-replayed through the web. An operator must reconcile the exact owned resource before any future retry. Disconnect stops access; persistent tenant profiles are not permanently deleted by this implementation.
+
+## Physical test harness preparation (not activated)
+
+The test-only bundle under tests/physical/ adds about:blank images, fake company/Notion providers, unconditional deny-all egress, fixed localhost HTTP/WS ingress, strict test DSN/marker guards, and test-run resource ID/label journaling and cleanup planning. tests/team-physical-plan.test.ts uses only virtual executors and in-memory Request/Response objects. No physical Docker/DB/listener/account or image build was performed during this preparation. The TEST web surface reuses real API handlers but is separate from the existing Next UI. Operational master protected storage remains unimplemented. See tests/physical/README.md for activation prerequisites and resource scope; actual activation requires separate human authorization.
