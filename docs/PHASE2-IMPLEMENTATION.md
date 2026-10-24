@@ -1,6 +1,6 @@
 # Phase 2: coworker authentication and isolated browser runtime
 
-Status: local code and isolated tests completed. NOT enabled or deployed on the existing personal service. No real coworker/Notion/company account or physical tenant topology has been verified.
+Status: prepared source and isolated/synthetic evidence only; no real coworker or production activation. Entries below are chronological. Latest pilot follow-up supersedes earlier missing-loader/manifest statements; historical tests are not live-account validation.
 
 ## Scope preserved
 
@@ -87,3 +87,7 @@ Code now adds invitation-only24-hour single-use recipient-bound signup (one coll
 The initial pilot writer only fills empty phone/email/birth-date/gender/UID properties on ONE existing exact-UID matched member. It does not create members, clone/personalize templates, import full surveys/memos, change status/training dates or generate schedules. Those general first-phase features are not completed by this pilot. Real-company and Notion E2E, operational secret recovery and production ingress are unverified. Existing-page Notion atomic concurrency remains unavailable; editing-pause consent is an operational condition. Uncertain writes remain held for manual read-only review.
 
 Latest preparation verification:31 selected unit/native HTTP+WS checks,37 isolated PostgreSQL integration cases, one sandboxed Windows Chrome Mock-API UI scenario with9 checks, root/web typechecks and production web build passed. No real providers were used. The final Docker test resources were removed and existing operating container identities stayed unchanged. See [verification boundaries](../deployment/pilot/VERIFICATION.md).
+
+## Required-input activation preparation follow-up
+
+Manifest generation, offline Dockerfiles/image contracts, production seccomp create+effective re-adoption checks, role-specific DB/key file delivery and loopback operator listener are implemented in source.26 selected unit/native checks, Compose static validation and same-identity synthetic DPAPI process-restart recovery passed. No images/containers/networks/production keys/operator/colleague accounts were created, and no external provider was installed/paid/activated. Device versus web-only access is still a required choice. See deployment/pilot README and VERIFICATION for exact approval inputs, new outbound/loopback topology and remaining real-account/general-sync limits.

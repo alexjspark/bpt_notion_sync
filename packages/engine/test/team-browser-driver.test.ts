@@ -1,3 +1,4 @@
+import{assertPilotEffectiveSeccomp}from'../../../apps/team-runner/browser-seccomp.ts';
 import{test}from'node:test';import assert from'node:assert/strict';
 import{DockerBrowserDriver,browserCreateArgs,browserNames,TEAM_BROWSER_PROFILE,type DockerCommand}from'../src/team-browser-driver.ts';
 import{tenantNetwork,peerName,type TrustedPeer}from'../src/team-browser-network.ts';
@@ -53,5 +54,7 @@ test('foreign network member, shared network, wrong labels or mutable peer confi
 
 for(const mode of['worker-tmpfs','worker-bind','worker-other-path','worker-source','gateway-tmpfs']as const)test('trusted-peer secret mount policy: '+mode,async()=>{
  const m=dockerMock();const execute:DockerCommand=async args=>{const r=await m.execute(args);if(args[0]==='inspect'&&args.at(-1)===peerName(mode==='gateway-tmpfs'?'gateway':'worker')){const meta=JSON.parse(r.stdout);meta.mounts=[{Type:mode==='worker-bind'?'bind':'tmpfs',Destination:mode==='worker-other-path'?'/other':'/run/team-secrets',Source:mode==='worker-source'?'/host':''}];return{exitCode:0,stdout:JSON.stringify(meta)};}return r;};
- const d=new DockerBrowserDriver(execute,image,peers,async()=>{});if(mode==='worker-tmpfs')assert.deepEqual(await d.ensure({tenantId:A,sessionId:C}),{ready:true});else await assert.rejects(d.ensure({tenantId:A,sessionId:C}),{code:'RUNNER_SCOPE_INVALID'});
+ const d=new DockerBrowserDriver(execute,image,peers,async()=>{});if(['worker-tmpfs','gateway-tmpfs'].includes(mode))assert.deepEqual(await d.ensure({tenantId:A,sessionId:C}),{ready:true});else await assert.rejects(d.ensure({tenantId:A,sessionId:C}),{code:'RUNNER_SCOPE_INVALID'});
 });
+
+test('production re-adoption validates effective seccomp before start while owned bad container can be stopped',async()=>{const m=dockerMock(),scope={tenantId:A,sessionId:C},base=new DockerBrowserDriver(m.execute,image,peers,async()=>{});await base.ensure(scope);const row=m.containers.get(browserNames(scope).container),profile={defaultAction:'SCMP_ACT_ERRNO',syscalls:[]};row.securityOpt=['seccomp='+JSON.stringify(profile)];let checks=0;const guarded=new DockerBrowserDriver(m.execute,image,peers,async()=>{},value=>{checks++;assertPilotEffectiveSeccomp(value,profile);});await guarded.ensure(scope);const before=checks;row.securityOpt=['seccomp=unconfined'];await assert.rejects(guarded.ensure(scope),{code:'RUNNER_SCOPE_INVALID'});assert.equal(checks,before+1);await guarded.stop(scope);assert.equal(checks,before+1);assert.equal(m.containers.size,0);});

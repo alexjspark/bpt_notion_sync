@@ -1,0 +1,8 @@
+ARG BROWSER_BASE
+FROM ${BROWSER_BASE}
+ARG SOURCE_REVISION
+USER root
+COPY --chown=pwuser:pwuser scripts/company-browser*.mjs /app/scripts/
+LABEL trainer-sync.image-contract="pilot-browser-v1" trainer-sync.source-revision=${SOURCE_REVISION}
+USER pwuser
+CMD ["node","/app/scripts/company-browser-start.mjs"]

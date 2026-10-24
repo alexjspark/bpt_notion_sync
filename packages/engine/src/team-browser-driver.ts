@@ -5,8 +5,8 @@ export const TEAM_BROWSER_PROFILE='/var/lib/trainer-sync/company-profile';
 export const browserNames=(scope:BrowserScope)=>({container:'ts-team-browser-'+requireUuid(scope.sessionId).replaceAll('-',''),volume:'ts-team-profile-'+requireUuid(scope.tenantId).replaceAll('-','')});
 export type DockerCommand=(args:readonly string[])=>Promise<{exitCode:number;stdout:string}>;
 export interface BrowserDriver{ensure(scope:BrowserScope):Promise<{ready:boolean}>;stop(scope:BrowserScope):Promise<void>}
-type Meta={tenant:string;session:string;managed:string;image:string;user:string;running:boolean;privileged:boolean;capAdd:unknown[]|null;pidMode:string;health:string;mounts:Array<{Type:string;Name:string;Destination:string}>;ports:Record<string,unknown>|null;networks:Record<string,unknown>};
-const metadata='{"tenant":{{json (index .Config.Labels "trainer-sync.tenant")}},"session":{{json (index .Config.Labels "trainer-sync.session")}},"managed":{{json (index .Config.Labels "trainer-sync.managed")}},"image":{{json .Image}},"user":{{json .Config.User}},"privileged":{{json .HostConfig.Privileged}},"capAdd":{{json .HostConfig.CapAdd}},"pidMode":{{json .HostConfig.PidMode}},"running":{{json .State.Running}},"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}"missing"{{end}},"mounts":{{json .Mounts}},"ports":{{json .HostConfig.PortBindings}},"networks":{{json .NetworkSettings.Networks}}}';
+type Meta={tenant:string;session:string;managed:string;image:string;user:string;running:boolean;privileged:boolean;capAdd:unknown[]|null;pidMode:string;health:string;mounts:Array<{Type:string;Name:string;Destination:string}>;ports:Record<string,unknown>|null;networks:Record<string,unknown>;securityOpt?:unknown};
+const metadata='{"tenant":{{json (index .Config.Labels "trainer-sync.tenant")}},"session":{{json (index .Config.Labels "trainer-sync.session")}},"managed":{{json (index .Config.Labels "trainer-sync.managed")}},"image":{{json .Image}},"user":{{json .Config.User}},"privileged":{{json .HostConfig.Privileged}},"capAdd":{{json .HostConfig.CapAdd}},"pidMode":{{json .HostConfig.PidMode}},"running":{{json .State.Running}},"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}"missing"{{end}},"mounts":{{json .Mounts}},"ports":{{json .HostConfig.PortBindings}},"networks":{{json .NetworkSettings.Networks}},"securityOpt":{{json .HostConfig.SecurityOpt}}}';
 export function browserCreateArgs(scope:BrowserScope,imageId:string):string[]{
  if(!/^sha256:[a-f0-9]{64}$/.test(imageId))throw new TeamError('RUNNER_SCOPE_INVALID');
  const n=browserNames(scope);
@@ -14,17 +14,17 @@ export function browserCreateArgs(scope:BrowserScope,imageId:string):string[]{
 }
 /** Privileged runner-only dependency injection. No CLI/process execution is imported into web code. */
 export class DockerBrowserDriver implements BrowserDriver{
- constructor(private readonly execute:DockerCommand,private readonly imageId:string,private readonly peers:readonly TrustedPeer[],private readonly pause:(ms:number)=>Promise<void>=ms=>new Promise(r=>setTimeout(r,ms))){
+ constructor(private readonly execute:DockerCommand,private readonly imageId:string,private readonly peers:readonly TrustedPeer[],private readonly pause:(ms:number)=>Promise<void>=ms=>new Promise(r=>setTimeout(r,ms)),private readonly assertSecurity?:(value:unknown)=>void){
   if(!/^sha256:[a-f0-9]{64}$/.test(imageId))throw new TeamError('RUNNER_SCOPE_INVALID');
   new TenantBrowserNetwork(execute,peers);
  }
  private async command(args:readonly string[]){const r=await this.execute(args);if(r.exitCode!==0)throw new TeamError('RUNNER_UNAVAILABLE');return r.stdout;}
- private async inspect(scope:BrowserScope):Promise<Meta|null>{
+ private async inspect(scope:BrowserScope,checkSecurity=true):Promise<Meta|null>{
   const n=browserNames(scope),listed=(await this.command(['container','ls','-a','--filter','name=^'+n.container+'$','--format','{{.Names}}'])).trim();
   if(!listed)return null;if(listed!==n.container)throw new TeamError('RUNNER_SCOPE_INVALID');
   let m:Meta;try{m=JSON.parse(await this.command(['inspect','--type','container','--format',metadata,n.container]));}catch{throw new TeamError('RUNNER_UNAVAILABLE');}
   if(m.managed!=='phase2-browser-v1'||m.tenant!==scope.tenantId||m.session!==scope.sessionId||m.image!==this.imageId||m.user!=='pwuser'||m.privileged!==false||(m.capAdd??[]).length>0||m.pidMode==='host'||Object.keys(m.ports??{}).length||!Array.isArray(m.mounts)||m.mounts.length!==1||m.mounts[0]!.Type!=='volume'||m.mounts[0]!.Name!==n.volume||m.mounts[0]!.Destination!==TEAM_BROWSER_PROFILE||!m.networks||Object.keys(m.networks).length!==1||!Object.hasOwn(m.networks,tenantNetwork(scope.tenantId)))throw new TeamError('RUNNER_SCOPE_INVALID');
-  return m;
+  if(checkSecurity)this.assertSecurity?.(m.securityOpt);return m;
  }
  private async volume(scope:BrowserScope){
   const n=browserNames(scope),listed=(await this.command(['volume','ls','--filter','name=^'+n.volume+'$','--format','{{.Name}}'])).trim();
@@ -41,10 +41,10 @@ export class DockerBrowserDriver implements BrowserDriver{
   return{ready:false};
  }
  async stop(scope:BrowserScope){
-  const n=browserNames(scope),m=await this.inspect(scope);if(!m)return;
+  const n=browserNames(scope),m=await this.inspect(scope,false);if(!m)return;
   if(m.running)await this.command(['stop','--time','10',n.container]);
-  const stopped=await this.inspect(scope);if(stopped?.running)throw new TeamError('RUNNER_UNAVAILABLE');
-  if(stopped)await this.command(['rm',n.container]);if(await this.inspect(scope))throw new TeamError('RUNNER_UNAVAILABLE');
+  const stopped=await this.inspect(scope,false);if(stopped?.running)throw new TeamError('RUNNER_UNAVAILABLE');
+  if(stopped)await this.command(['rm',n.container]);if(await this.inspect(scope,false))throw new TeamError('RUNNER_UNAVAILABLE');
   // Persistent tenant profile is retained; no force, -v, bind paths, Docker socket or volume deletion.
  }
 }

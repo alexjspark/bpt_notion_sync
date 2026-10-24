@@ -1,62 +1,23 @@
 {
-  "status": "PREPARATION_ONLY_NOT_LAUNCHABLE",
-  "enabled": false,
-  "pilotWriteApproved": false,
+  "version": 2,
+  "status": "CODE_READY_REQUIRED_INPUTS_AND_ACTIVATION_PENDING",
+  "generator": "scripts/prepare-pilot-deployment.ts",
+  "inputExample": "deployment/pilot/input.example.json",
+  "requiredInputs": [
+    "deploymentId",
+    "current clean sourceRevision",
+    "chosen HTTPS origin and device/web access provider approval",
+    "reviewed cached immutable runtime/browser/postgres image IDs",
+    "three free explicit loopback ports"
+  ],
+  "generatedFiles": [
+    "compose.json",
+    "runner.json",
+    "access.json"
+  ],
+  "automaticWrites": false,
   "scheduleEnabled": false,
-  "origin": null,
-  "images": {
-    "web": null,
-    "worker": null,
-    "gateway": null,
-    "egress": null,
-    "browser": null
-  },
-  "database": {
-    "dedicated": true,
-    "credentialFileRequired": true,
-    "createApproved": false,
-    "migration": "013_team_pilot"
-  },
-  "services": {
-    "web": {
-      "name": "trainer-sync-pilot-web",
-      "managed": "pilot-web-v1",
-      "port": 3000,
-      "secretTmpfs": "/run/team-secrets",
-      "uid": 1000
-    },
-    "worker": {
-      "name": "trainer-sync-team-worker",
-      "managed": "phase2-worker-v1",
-      "secretTmpfs": "/run/team-secrets",
-      "uid": 1000
-    },
-    "gateway": {
-      "name": "trainer-sync-team-gateway",
-      "managed": "phase2-gateway-v1",
-      "port": 4315
-    },
-    "egress": {
-      "name": "trainer-sync-team-egress",
-      "managed": "phase2-egress-v1",
-      "companyHttpsOnly": true
-    },
-    "ingress": {
-      "loopbackOnly": true,
-      "hostPort": null,
-      "publishApproved": false
-    }
-  },
-  "network": {
-    "tenantInternal": true,
-    "dockerSocketInWebOrWorker": false,
-    "seccompActivationApproved": false
-  },
-  "externalAccess": {
-    "provider": "Tailscale Serve",
-    "tailnet": null,
-    "hostname": null,
-    "users": [],
-    "activationApproved": false
-  }
+  "actualDeploymentExecuted": false,
+  "actualKeysGenerated": false,
+  "actualColleagueInvited": false
 }

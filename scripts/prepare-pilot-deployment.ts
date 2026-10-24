@@ -1,0 +1,13 @@
+import{readFileSync,mkdirSync,writeFileSync}from'node:fs';import{resolve,relative}from'node:path';import{execFileSync}from'node:child_process';import{validatePilotDeployment,compilePilotDeployment,pilotAccessPlan,pilotRunnerEnvironment,verifyPilotImage}from'../packages/engine/src/pilot-deployment.ts';
+try{const path=resolve(process.argv[2]??''),root=resolve('local-config'),rel=relative(root,path);if(!rel||rel.startsWith('..')||rel.includes(':')||!path.endsWith('pilot-deployment.json'))throw Error();
+ const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();if(execFileSync('git',['status','--porcelain'],{encoding:'utf8'}).trim())throw Error();
+ const v=validatePilotDeployment(JSON.parse(readFileSync(path,'utf8')),head);
+ for(const role of['runtime','browser','postgres']as const){const text=execFileSync('docker',['image','inspect','--format','{"id":{{json .Id}},"user":{{json .Config.User}},"labels":{{json .Config.Labels}},"entrypoint":{{json .Config.Entrypoint}}}',v.images[role]],{encoding:'utf8',timeout:10000,stdio:['ignore','pipe','ignore']});verifyPilotImage(role,JSON.parse(text),v);}
+ if(process.platform!=='win32')throw Error();const ports=Object.values(v.ports).join(','),portCheck=execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"$ErrorActionPreference='Stop';$ports=@("+ports+");if(@(Get-NetTCPConnection -State Listen | Where-Object {$_.LocalPort -in $ports}).Count){exit 1}"],{timeout:10000,stdio:'ignore',windowsHide:true});
+
+ const planned=compilePilotDeployment(v);
+ for(const name of Object.values(planned.services).map(s=>s.container_name)){if(execFileSync('docker',['ps','-a','--filter','name=^/'+name+'$','--format','{{.ID}}'],{encoding:'utf8',timeout:10000}).trim())throw Error();}
+ for(const network of Object.values(planned.networks)){if(execFileSync('docker',['network','ls','--filter','name=^'+network.name+'$','--format','{{.ID}}'],{encoding:'utf8',timeout:10000}).trim())throw Error();}
+ if(execFileSync('docker',['volume','ls','--filter','name=^'+planned.volumes['pilot-data'].name+'$','--format','{{.Name}}'],{encoding:'utf8',timeout:10000}).trim())throw Error();
+ const out=resolve('.runtime/pilot-plan',v.deploymentId);mkdirSync(out,{recursive:true});writeFileSync(resolve(out,'compose.json'),JSON.stringify(compilePilotDeployment(v),null,2),{flag:'wx'});writeFileSync(resolve(out,'runner.json'),JSON.stringify(pilotRunnerEnvironment(v),null,2),{flag:'wx'});writeFileSync(resolve(out,'access.json'),JSON.stringify(pilotAccessPlan(v),null,2),{flag:'wx'});console.log(JSON.stringify({code:'PILOT_PLAN_PREPARED',deploymentId:v.deploymentId}));
+}catch{console.error(JSON.stringify({code:'PILOT_PLAN_INPUT_REQUIRED_OR_INVALID'}));process.exitCode=1;}

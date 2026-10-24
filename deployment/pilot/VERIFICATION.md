@@ -15,8 +15,19 @@ An initial audit fixture used the wrong sink shape and then a synthetic key shor
 
 ## Remaining activation checks
 
-Real DPAPI create/unseal+ACL+restart/restore, tmpfs injection with production images/UID, initial operator safe-input listener, pinned browser seccomp, dedicated DB credentials/migration, company MFA/account binding, own Notion schema/template permission, counted live coverage, private HTTPS/WS route, real selected-member preview and its final approval remain pending. No mocked result authorizes or proves these steps. The current deployment contract deliberately cannot be launched as production.
+Real DPAPI create/unseal+ACL+restart/restore, tmpfs injection with production images/UID, initial operator safe-input listener, pinned browser seccomp, dedicated DB credentials/migration, company MFA/account binding, own Notion schema/template permission, counted live coverage, private HTTPS/WS route, real selected-member preview and its final approval remain pending. No mocked result authorizes or proves these steps. At that checkpoint the contract was non-launchable; the follow-up below replaces it with a validated generator while actual activation stays gated.
 
 First pilot writes only blank phone/email/birth-date/gender/UID on a uniquely matched existing member. New-member creation/template/survey/memo/full schedule flows remain incomplete and are not declared finished. Notion CAS remains unavailable; editing-pause consent is necessary. An uncertain consumed run blocks further pilot execution pending manual read-only review; no automatic retry/release endpoint exists.
 
 Initial safe-input bootstrap and bounded startup are now prepared/tested as modules, with concurrent-operator creation guarded in PostgreSQL. They have not provisioned an actual operator or started an approved bootstrap listener.
+
+## Manifest/bootstrap/secret delivery follow-up
+
+-26 selected unit/native tests passed: required manifest choices/source/image/port rejection, fixed peers and OFF flags, separate access adapters, effective seccomp re-adoption/owned cleanup, DB file/payload scopes, embedded installer syntax, atomic PG password publication, parallel streamed bootstrap requests, Unicode CSRF rejection, real loopback Host/Origin/body/Upgrade/CONNECT/lifetime behavior with fake provisioning. No real account/DB provisioning occurred.
+- Docker compose config parsed the synthetic six-service plan and preserved escaped shell dollars. This is static CLI validation only:0 images built,0 containers/networks/volumes created.
+- Windows DPAPI synthetic recovery passed across two fresh Node processes and independent PowerShell calls under the same Windows identity. Public fixed64-byte test pair + public token only; protect→process exit→restore→vault-open matched. Wrong entropy and tampered ciphertext were rejected. Exact UUID temporary files/folder removed. Production stores read:false; production keys generated:0. This does not prove another-user, reboot, machine loss, operating ACL or real-provider recovery.
+- The new operational Dockerfiles, exact-role secret installers and entrypoints are source/static/mock tested; they have NOT been built/launched or exercised with real credentials. New database/operator helpers are default-deny and were not invoked.
+
+New bugs found during review and fixed: streamed double bootstrap attempt; UTF8 length mismatch in constant-time compare; inner installer regex escaping; Compose dollar interpolation; premature publication of a partial PG password file; stale-deployment secret injection. Source-generation syntax/test expectation errors were corrected before final checks.
+
+The previous37 PostgreSQL integration and9-check Mock UI results above belong to the prior pilot preparation checkpoint; they are not newly claimed live-account validation for this follow-up.

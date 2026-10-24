@@ -1,3 +1,5 @@
+import{databaseConnectionString}from'./runtime-secret.ts';
+export{databaseConnectionString,installWindowsPilotDatabase}from'./runtime-secret.ts';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
@@ -31,9 +33,9 @@ export interface DashboardSnapshot {
 let pool: pg.Pool | undefined;
 function getPool(): pg.Pool {
   if (!pool) {
-    const connectionString = process.env.DATABASE_URL;
+    const connectionString = databaseConnectionString();
     if (!connectionString) throw new Error('DATABASE_URL is required; no external database is selected automatically.');
-    pool = new pg.Pool({ connectionString, max: 8 });
+    pool = new pg.Pool({ connectionString, max: 8,...(process.env.TEAM_PILOT_ENABLED==='true'?{connectionTimeoutMillis:5000,statement_timeout:15000,query_timeout:20000}:{}) });
   }
   return pool;
 }

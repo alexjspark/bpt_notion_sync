@@ -1,0 +1,14 @@
+ARG BROWSER_BASE
+ARG RUNTIME_BASE
+FROM ${BROWSER_BASE} AS novnc
+FROM ${RUNTIME_BASE}
+ARG SOURCE_REVISION
+USER root
+WORKDIR /app
+COPY --from=novnc /usr/share/novnc /usr/share/novnc
+COPY --chown=1000:1000 . /app
+RUN --network=none TEAM_CLIENT_BUILD_ONLY=true node --import tsx scripts/build-team-client.ts
+RUN --network=none npm run build:web
+LABEL trainer-sync.image-contract="pilot-runtime-v1" trainer-sync.source-revision=${SOURCE_REVISION}
+USER 1000:1000
+CMD ["node","--import","tsx","scripts/team-pilot-start.ts","web"]

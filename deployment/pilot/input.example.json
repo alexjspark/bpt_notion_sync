@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "deploymentId": null,
+  "sourceRevision": null,
+  "origin": null,
+  "access": {
+    "mode": null,
+    "provider": null,
+    "approvalReference": null
+  },
+  "images": {
+    "runtime": null,
+    "browser": null,
+    "postgres": null
+  },
+  "ports": {
+    "ingress": null,
+    "database": null,
+    "bootstrap": null
+  }
+}

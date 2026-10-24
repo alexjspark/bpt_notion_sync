@@ -1,3 +1,4 @@
+import{databaseConnectionString}from'../../db/src/runtime-secret.ts';
 import{AsyncLocalStorage}from'node:async_hooks';import{createHmac}from'node:crypto';import pg from'pg';import type{QueryResultRow}from'pg';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 export const AUDIT_STAGES=['ui_request','queued','claim','collect','map','plan','write','readback','complete','retry','error']as const;
@@ -43,7 +44,7 @@ export function buildSafeAuditEvent(input:AuditInput,base:AuditContext|undefined
 }
 let keyPromise:Promise<string>|undefined,lastWarning=0,dropped=0,auditPool:pg.Pool|undefined;
 export function auditPoolLimits(){return{max:1,connectionTimeoutMillis:500,statement_timeout:1000,query_timeout:1500,idleTimeoutMillis:1000,allowExitOnIdle:true};}
-async function query<T extends QueryResultRow=QueryResultRow>(sql:string,values:unknown[]=[]){if(!auditPool){if(!process.env.DATABASE_URL)throw Error('AUDIT_DATABASE_UNAVAILABLE');auditPool=new pg.Pool({connectionString:process.env.DATABASE_URL,...auditPoolLimits()});auditPool.on('error',()=>{keyPromise=undefined;dropped++;if(Date.now()-lastWarning>60000){lastWarning=Date.now();console.warn(JSON.stringify({code:'AUDIT_IDLE_CONNECTION_ERROR',droppedEvents:dropped}));}});}if(auditPool.waitingCount>=20)throw Error('AUDIT_BUFFER_FULL');return auditPool.query<T>(sql,values);}
+async function query<T extends QueryResultRow=QueryResultRow>(sql:string,values:unknown[]=[]){if(!auditPool){auditPool=new pg.Pool({connectionString:databaseConnectionString(),...auditPoolLimits()});auditPool.on('error',()=>{keyPromise=undefined;dropped++;if(Date.now()-lastWarning>60000){lastWarning=Date.now();console.warn(JSON.stringify({code:'AUDIT_IDLE_CONNECTION_ERROR',droppedEvents:dropped}));}});}if(auditPool.waitingCount>=20)throw Error('AUDIT_BUFFER_FULL');return auditPool.query<T>(sql,values);}
 export async function closeAuditLog(){if(auditPool){await auditPool.end();auditPool=undefined;}keyPromise=undefined;}
 async function getKey(){if(!keyPromise)keyPromise=query<{pseudonym_key:string}>('SELECT pseudonym_key FROM sync_audit_settings WHERE singleton=true').then(r=>{if(!r.rows[0]?.pseudonym_key)throw Error('AUDIT_KEY_UNAVAILABLE');return r.rows[0].pseudonym_key;}).catch(e=>{keyPromise=undefined;throw e;});return keyPromise;}
 export async function pruneAuditLog():Promise<void>{
