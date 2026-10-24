@@ -1,3 +1,4 @@
+import{pilotSchema}from'./team-pilot-provider.ts';
 import { TeamError,requireUuid } from './team-errors.ts';
 import { OfficialNotionClient,type NotionTransport,object } from './live-notion-client.ts';
 export interface TeamDestination{databaseId:string;dataSourceId:string;templateId:string}
@@ -28,7 +29,7 @@ export interface TeamNotionValidator{validate(token:string,destination:TeamDesti
 const same=(a:unknown,b:string)=>typeof a==='string'&&a.replaceAll('-','').toLowerCase()===b.replaceAll('-','').toLowerCase();
 /** Read-only official contracts; caller explicitly supplies transport and credentials. No automatic connection. */
 export class OfficialTeamNotionValidator implements TeamNotionValidator{
- constructor(private readonly transport:NotionTransport){}
+ constructor(private readonly transport:NotionTransport,private readonly requirePilotSchema=false){}
  async validate(token:string,d:TeamDestination):Promise<void>{
   const client=new OfficialNotionClient({token,transport:this.transport,readPermit:{approved:true},maxRateLimitRetries:0});
   const db=await client.read('/databases/'+d.databaseId);
@@ -36,6 +37,7 @@ export class OfficialTeamNotionValidator implements TeamNotionValidator{
   const ds=await client.read('/data_sources/'+d.dataSourceId);
   const parent=object(ds.parent),props=object(ds.properties);
   if(ds.in_trash||ds.archived||!same(parent.database_id,d.databaseId)||!Object.values(props).some(p=>object(p).type==='title'))throw new TeamError('DESTINATION_INVALID');
+  if(this.requirePilotSchema)pilotSchema(props);
   let cursor:string|undefined;const seen=new Set<string>();
   for(let n=0;n<20;n++){
    const r=await client.read('/data_sources/'+d.dataSourceId+'/templates',{page_size:'100',...(cursor?{start_cursor:cursor}:{})});

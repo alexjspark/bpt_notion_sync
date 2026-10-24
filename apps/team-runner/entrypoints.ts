@@ -5,7 +5,7 @@ import{runtimeHeartbeat,type RuntimeRole}from'../../packages/engine/src/team-wor
 export function approvedRuntime(){
  if(process.env.PHASE2_ENABLED!=='true'||process.env.TEAM_RUNTIME_APPROVED!=='true')throw new TeamError('RUNNER_UNAVAILABLE');
 }
-export async function requireRuntimeSchema(){if(!(await query("SELECT 1 FROM schema_migrations WHERE version='012_team_browser_runtime'")).rowCount)throw new TeamError('NOT_READY');}
+export async function requireRuntimeSchema(){if(!(await query('SELECT 1 FROM schema_migrations WHERE version=$1',[process.env.TEAM_PILOT_ENABLED==='true'?'013_team_pilot':'012_team_browser_runtime'])).rowCount)throw new TeamError('NOT_READY');}
 export function envKey(name:string):Buffer{const value=process.env[name];if(!value||!/^[a-fA-F0-9]{64}$/.test(value))throw new TeamError('VAULT_UNCONFIGURED');return Buffer.from(value,'hex');}
 export async function runLoop(role:RuntimeRole,tick:()=>Promise<unknown>){
  approvedRuntime();await requireRuntimeSchema();let stop=false;const end=()=>{stop=true;};process.once('SIGTERM',end);process.once('SIGINT',end);

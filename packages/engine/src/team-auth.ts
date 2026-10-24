@@ -16,12 +16,15 @@ export async function verifyTeamPassword(password:string,stored:string):Promise<
  return valid&&timingSafeEqual(key,Buffer.from(parts[2],'hex'));
 }
 /** Administrative library boundary only. No public registration or automatic real-user provisioning. */
-export async function provisionTeamUser(input:{login:string;password:string;label:string}):Promise<{userId:string;tenantId:string}>{
+async function provision(input:{login:string;password:string;label:string},role:'member'|'operator'):Promise<{userId:string;tenantId:string}>{
  if(!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(input.login)||!input.label||input.label.length>80)throw new TeamError('INVALID_INPUT',400);
  const passwordHash=await hashTeamPassword(input.password),tenantId=randomUUID(),userId=randomUUID();
- await transaction(async c=>{await c.query('INSERT INTO team_tenants(id,label) VALUES($1,$2)',[tenantId,input.label]);await c.query('INSERT INTO team_users(id,tenant_id,login,password_hash) VALUES($1,$2,$3,$4)',[userId,tenantId,input.login,passwordHash]);});
+ await transaction(async c=>{if(role==='operator'){await c.query("SELECT pg_advisory_xact_lock(hashtext('team-operator-bootstrap'))");if((await c.query("SELECT 1 FROM team_users WHERE role='operator'")).rowCount)throw new TeamError('CONFLICT');}await c.query('INSERT INTO team_tenants(id,label) VALUES($1,$2)',[tenantId,input.label]);await c.query('INSERT INTO team_users(id,tenant_id,login,password_hash,role) VALUES($1,$2,$3,$4,$5)',[userId,tenantId,input.login,passwordHash,role]);});
  return{userId,tenantId};
 }
+export const provisionTeamUser=(input:{login:string;password:string;label:string})=>provision(input,'member');
+/** Operator bootstrap only. No HTTP public registration route calls this. */
+export const provisionTeamOperator=(input:{login:string;password:string;label:string},approval:{approved:true})=>{if(approval?.approved!==true)throw new TeamError('FORBIDDEN',403);return provision(input,'operator');};
 export class TeamAuth {
  async login(login:unknown,password:unknown):Promise<{token:string;expiresAt:string}>{
   if(typeof login!=='string'||typeof password!=='string'||login.length>64||password.length>128)throw new TeamError('LOGIN_FAILED',401);

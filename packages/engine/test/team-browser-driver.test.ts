@@ -50,3 +50,8 @@ test('foreign network member, shared network, wrong labels or mutable peer confi
  const row=m.containers.get(browserNames({tenantId:A,sessionId:C}).container);row.networks={'trainer-sync-local_private':{}};await assert.rejects(d.ensure({tenantId:A,sessionId:C}),{code:'RUNNER_SCOPE_INVALID'});
  assert.throws(()=>new DockerBrowserDriver(m.execute,image,[{role:'gateway',name:'original-company-browser',imageId:image}]),{code:'RUNNER_SCOPE_INVALID'});
 });
+
+for(const mode of['worker-tmpfs','worker-bind','worker-other-path','worker-source','gateway-tmpfs']as const)test('trusted-peer secret mount policy: '+mode,async()=>{
+ const m=dockerMock();const execute:DockerCommand=async args=>{const r=await m.execute(args);if(args[0]==='inspect'&&args.at(-1)===peerName(mode==='gateway-tmpfs'?'gateway':'worker')){const meta=JSON.parse(r.stdout);meta.mounts=[{Type:mode==='worker-bind'?'bind':'tmpfs',Destination:mode==='worker-other-path'?'/other':'/run/team-secrets',Source:mode==='worker-source'?'/host':''}];return{exitCode:0,stdout:JSON.stringify(meta)};}return r;};
+ const d=new DockerBrowserDriver(execute,image,peers,async()=>{});if(mode==='worker-tmpfs')assert.deepEqual(await d.ensure({tenantId:A,sessionId:C}),{ready:true});else await assert.rejects(d.ensure({tenantId:A,sessionId:C}),{code:'RUNNER_SCOPE_INVALID'});
+});
