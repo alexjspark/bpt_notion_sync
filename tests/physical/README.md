@@ -1,5 +1,7 @@
 # Physical isolation harness — prepared, NOT activated
 
+A limited approved execution was attempted after preparation. It stopped at Chromium sandbox startup; independent checks and resource cleanup completed. See [execution result](./EXECUTION-RESULT-2026-10-24.md) for the exact pass / blocked / unverified scope.
+
 This directory is test-only source. Importing its modules does not create resources. The preparation turn ran only pure in-memory tests and TypeScript checks. No Docker command, image build, DB connection, server listener, account creation or credential generation was executed.
 
 ## Fixed scope
@@ -46,4 +48,4 @@ The compose plan sets test gates for the future test stack. Generating that plan
 
 These checks use injected in-memory executors and HTTP Request/Response objects. They do not listen on ports, connect to a DB, call Docker, hash/provision an actual account or generate secrets.
 
-Actual offline image construction, Docker topology, noVNC assets, ingress/WS forwarding and real cleanup have not been executed. A live company/Notion synchronization claim would be incorrect.
+The initial preparation did not execute Docker resources. The later partial execution report above supersedes that initial execution status. Full physical isolation and live company/Notion synchronization remain unverified.
