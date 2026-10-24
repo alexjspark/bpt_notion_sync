@@ -73,3 +73,9 @@ A manual_review cleanup is intentionally not force-replayed through the web. An 
 ## Physical test harness preparation (not activated)
 
 The test-only bundle under tests/physical/ adds about:blank images, fake company/Notion providers, unconditional deny-all egress, fixed localhost HTTP/WS ingress, strict test DSN/marker guards, and test-run resource ID/label journaling and cleanup planning. tests/team-physical-plan.test.ts uses only virtual executors and in-memory Request/Response objects. No physical Docker/DB/listener/account or image build was performed during this preparation. The TEST web surface reuses real API handlers but is separate from the existing Next UI. Operational master protected storage remains unimplemented. See tests/physical/README.md for activation prerequisites and resource scope; actual activation requires separate human authorization.
+
+## Approved synthetic physical follow-up (2026-10-24)
+
+The Windows Docker follow-up verified tenant-network negative TCP probes and corrected sandbox-client HTTP/WS, rendered noVNC and lifecycle cleanup. Selected checks:38 unit/native gateway cases plus root/web typechecks. See [execution result](../tests/physical/EXECUTION-RESULT-2026-10-24.md). Initial Windows Playwright default sandbox-disable evidence was discarded and rerun with explicit sandbox and actual-argument guards.
+
+Operating services and real member data were preserved. The temporary loopback-to-Docker-stdio test transport is not production ingress. Operational master storage, real colleague accounts/provider grants, remote HTTPS deployment and the unfinished phase-one full sync are still separate work; writes/scheduling were not enabled.

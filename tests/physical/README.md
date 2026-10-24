@@ -1,6 +1,6 @@
 # Physical isolation harness — prepared, NOT activated
 
-A limited approved execution was attempted after preparation. It stopped at Chromium sandbox startup; independent checks and resource cleanup completed. See [execution result](./EXECUTION-RESULT-2026-10-24.md) for the exact pass / blocked / unverified scope.
+The approved synthetic follow-up verified physical separation, a corrected sandboxed Windows client, the rendered1600x1000 noVNC screen and lifecycle cleanup. See [execution result](./EXECUTION-RESULT-2026-10-24.md) for evidence, the initial sandbox correction and remaining production limitations.
 
 This directory is test-only source. Importing its modules does not create resources. The preparation turn ran only pure in-memory tests and TypeScript checks. No Docker command, image build, DB connection, server listener, account creation or credential generation was executed.
 
@@ -48,4 +48,10 @@ The compose plan sets test gates for the future test stack. Generating that plan
 
 These checks use injected in-memory executors and HTTP Request/Response objects. They do not listen on ports, connect to a DB, call Docker, hash/provision an actual account or generate secrets.
 
-The initial preparation did not execute Docker resources. The later partial execution report above supersedes that initial execution status. Full physical isolation and live company/Notion synchronization remain unverified.
+The initial preparation did not execute Docker resources. The later approved execution report supersedes that initial status. Synthetic physical checks and corrected-client rendering passed; real company/Notion E2E and production ingress remain unverified.
+
+## Corrected test-client requirements
+
+Use physicalClientOptions() with chromiumSandbox:true and verifyRunningPhysicalClientSandbox() after launch. Absence of --no-sandbox in explicit args alone is insufficient because Playwright has defaults. The guard never emits command lines.
+
+The physical runtime build bundles cached noVNC with cached esbuild under --network=none. Missing cache is still a stop condition. No operational master loader or real colleague activation is provided by this test.

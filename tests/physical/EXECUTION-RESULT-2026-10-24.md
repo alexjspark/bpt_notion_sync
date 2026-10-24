@@ -1,67 +1,77 @@
-# Local physical test attempt - 2026-10-24
+# Approved synthetic physical test result - 2026-10-24
 
-Outcome: PARTIAL. The full A/B browser isolation test did not pass. Chromium failed before a usable browser was available. Do not treat the independent authorization checks as a completed physical-isolation or live-account E2E result.
+The approved local test completed, including a rendered authenticated noVNC screen. This establishes synthetic component and corrected sandbox-client checks. It does not activate real colleague accounts or establish a production company/Notion E2E.
 
-## Actual execution
+## Verified scope
 
-- Source: prepared harness at commit 0b5cce7, unchanged application sources.
-- Two test images were built from already cached immutable base IDs, using the legacy Docker builder with --pull=false and --network=none. No dependency install or image pull was performed.
-- Six services started on a new internal control network and an isolated tmpfs database named trainer_sync_team_physical_test.
-- Two synthetic users were provisioned. All Notion credentials, destinations and company bindings were public test fixtures. No operating master key or real company/Notion transport was used.
-- Only A's dedicated browser was requested. It exited with code 1 and an allowlisted diagnostic: No usable sandbox. The runner made four bounded attempts, then set manual_review / RUNNER_UNAVAILABLE. B's browser was not requested after this failure.
-- Runtime resources created: seven containers (six services plus A browser), two internal networks (control plus A), and one new test profile volume. This is less than the maximum approved eight containers / three networks / two volumes.
+| Area | Evidence |
+| --- | --- |
+| Docker browser sandbox | New test browsers used pwuser, privileged=false, no added capabilities, and the exact reviewed Playwright seccomp profile. No Docker browser used --no-sandbox. |
+| Tenant physical separation | Actual TCP probes from both A and B could not reach the other browser's VNC6080/CDP9222 or the control DB5432/web3000. The trusted gateway4315 positive control succeeded. Each browser had one tenant-internal network and no published ports. |
+| Account and destination boundaries | Synthetic A/B service logins, other-owner/anonymous browser rejection, invalid Origin rejection, own fake Notion destination acceptance and other destination rejection were exercised. No name-based member matching was added. |
+| Corrected Windows sandbox client | chromiumSandbox:true is explicit. A runtime guard inspected only the Chrome process owned by the test process; checkedProcesses=1, sandboxDisabled=false. |
+| Authenticated WS | Corrected clients received RFB data; other-user and anonymous requests produced actual403 responses. Timeouts were not counted as authorization denials. A10-second idle connection remained open. |
+| Lifecycle | Corrected-client runs verified UI cancellation, controlled synthetic expiry, profile reuse after cancellation/expiry, and logout. Logout was checked as action completion401, WS closure, then runner-confirmed browser removal. |
+| Full browser-to-VNC protocol | The sandboxed Windows client completed the gateway path through RFB ServerInit:1600x1000, security type1(None), no error. The direct internal server probe produced the same dimensions. |
+| Visible noVNC screen | With the offline bundle, document.readyState=complete, canvas1600x1000 and no pending assets were observed. The synthetic TEST TrainerSync A screen was visually inspected. |
+| Egress | The test proxy rejected CONNECT before DNS/dial. Only test-internal IPs were used for TCP probes. No Internet DNS/dial test was performed. |
+| Selected automated checks |38 related unit/native HTTP/WS checks passed, plus root and web TypeScript checks. This is not the entire repository test suite or a real provider E2E. |
 
-## Observed localhost publication issue
+The TEST surface uses the real team authentication, connection and queue handlers, with injected synthetic company/Notion providers. It is separate from the Next production UI.
 
-HostConfig contained the intended 127.0.0.1:4316 and 127.0.0.1:15436 bindings, but Docker Desktop returned empty actual port mappings for the internal network. Direct host access failed.
+## Sandbox correction and discarded evidence
 
-The bounded test used temporary Windows loopback listeners on those same two ports. They forwarded opaque TCP over non-TTY Docker exec stdio into exact journal-recorded test container IDs. Targets and ports were fixed, ownership labels were rechecked per connection, connections and lifetime were bounded, and payloads / stderr were not logged. No additional network, external listener, Docker socket mount or permission was added.
+Playwright's default would add --no-sandbox when chromiumSandbox is unspecified. This was initially missed for the temporary Windows UI client. The identified owned test Chrome process was stopped; the user's Chrome and the Docker company browser were not stopped.
 
-This verifies a loopback-to-exec test transport, not successful Docker port publication. It is not an implemented production ingress deployment.
+The source now explicitly enables the client sandbox and checks the actual running command line. Regression tests reject implicit/explicit sandbox-disable flags and unavailable argument evidence. Earlier unprotected Windows-client passes are historical only and are excluded from the final sandbox UI evidence above.
 
-## Independent actual checks
+The Docker browser sandbox and raw Docker-network probes were separate component measurements; those browsers always used the approved sandbox profile. Historical mock preview completion is not presented as a corrected sandbox UI E2E.
 
-A separate fresh browser context per synthetic user exercised the TEST page with the real team API handlers. Twenty checks passed:
+## Changes made
 
-- A/B UI login; anonymous API rejection; client tenant override rejection; invalid Origin rejection.
-- Own fake Notion destination accepted and the other user's fake destination rejected for both A and B.
-- Stale connection revisions rejected for both users.
-- Writes, scheduling and full-sync-complete flags remained false.
-- UI preview failed closed for both unready company connections; no preview jobs were queued.
-- Two tenant-scoped fake secret envelopes were stored without their public fake plaintext tokens.
-- Cross-user and anonymous browser HTTP access was denied.
-- UI cancellation caused the runner to remove A's failed browser.
-- UI logout revoked the synthetic user's authentication.
+- Pinned the existing reviewed seccomp file and hash for new test browser creation only. Arbitrary profile paths, privilege/capability overrides and duplicate security options fail closed.
+- Made Chromium exit before its display processes are torn down, with a bounded6-second wait and a fixed forced-shutdown diagnostic. Successful profile reuse was exercised; exit0 alone is not treated as proof of clean profile release.
+- Removed the temporary relay's3-minute DB lifetime mismatch, preserved stdout/socket buffers on normal closure, and kept fixed targets, exact resource ownership checks, connection limits and bounded lifetimes.
+- Cleared HTTP request timers after authenticated WS upgrade while preserving gateway authorization rechecks and its maximum lifetime.
+- Used only cached esbuild0.28.2 and cached noVNC sources to build a151245-byte first-party client bundle. Authentication, Host/Origin rules and CSP were not relaxed.
+- Added bundle size/path checks and a bounded development fallback to the original fixed client source. Generated vendor artifacts are excluded from Git and Docker input context.
 
-These are actual isolated UI/API/DB checks. They do not establish a successful company read, Notion write, noVNC session, worker preview completion or Next UI E2E.
+## File-loading diagnosis
 
-## Browser configuration diagnosis
+The same unbundled core/rfb.js was read over Windows loopback->ingress->gateway and directly inside Docker. Both returned HTTP200 and105544 complete bytes, without timeout. This excluded loss of that individual file.
 
-Both the operating company browser and test browser used pwuser, privileged=false and no added Linux capabilities. The test image was derived from the same cached operating browser base, changing only the test startup to about:blank.
+The multi-module browser path had about25 pending module requests. Bundling removed this fan-out: the final page had no pending assets. An initial10-second observation saw a zero-sized canvas; the bounded45-second observation subsequently verified the full1600x1000 rendered screen. The relay's concurrency delay was not independently characterized as a production network defect.
 
-The operating browser used a custom seccomp profile whose parsed content matched docker/playwright-seccomp.json. The test browser had no custom seccomp setting. The local reviewed profile allows clone / setns / unshare for browser user namespaces. The missing profile is the strongest observed configuration difference associated with No usable sandbox; host kernel / AppArmor causes were not independently ruled out.
+## Test transport and retained limitations
 
-No --no-sandbox flag, unconfined profile, added capability or security-setting change was applied. A next attempt needs explicit approval to apply the existing reviewed profile to newly created test browsers only, with fixed profile validation in the runner. It does not require changing the existing operating browser or obtaining a new profile download.
+Docker Desktop recorded the requested127.0.0.1 port bindings but exposed empty actual mappings on the internal test network. Direct Docker port publication therefore did not pass.
 
-## Not executed / not established
+The approved test used temporary Windows listeners only on127.0.0.1:4316 and127.0.0.1:15436, forwarding opaque traffic through non-TTY Docker CLI stdio to exact journal-owned test IDs. No Docker socket was mounted into web/worker, no external bridge/network/port was added, and no payload/cookie/token was logged.
 
-- Successful noVNC HTTP/WS session or open-WS invalidation after revision/logout/expiry.
-- Raw A-to-B browser VNC/CDP and browser-to-control TCP isolation, since usable A/B browsers were absent.
-- Successful button-to-queue-to-worker preview with a ready synthetic company browser.
-- Actual external DNS blocking. No external DNS lookup or Internet dial was attempted.
-- Real company/Notion authentication, member writes, colleague onboarding or production master-key storage.
-- Production network/HTTPS ingress deployment.
+This is a test transport workaround. Production same-origin ingress, external HTTPS access, remote Mac/Windows operation and deployment performance remain unverified.
 
-## Cleanup and preservation
+## Cleanup and operating-service preservation
 
-The host runner and loopback listeners were stopped first. The final host state recorded zero active sockets and relays. Cleanup used the test journal's exact IDs and run/ownership labels, and only explicit stop/rm/network-rm/volume-rm commands.
+Each attempt stayed within the concurrent budget of8 runtime containers,3 internal networks and2 new synthetic profile volumes. Test instances could be replaced sequentially while diagnosing failures; each resource was recorded by ID/run/managed labels.
 
-All ten recorded runtime resources were confirmed removed. A separate label-filtered inventory found zero remaining containers, networks or volumes for the run. No listener remained on 4316 or 15436.
+All recorded runtime resources from the attempts were removed using only explicit owned-ID stop/rm/network-rm/volume-rm operations. Final label-filtered container/network/volume inventory was empty. No listener remained on4316 or15436; final host metadata recorded zero active sockets and relays.
 
-The operating service baseline retained identical container IDs, image IDs, start timestamps and running states. The existing web, company browser and database remained healthy. This is service-metadata/health verification, not a complete comparison of all operating database contents. No test code connected to the operating database or real providers.
+The final cleanup reported allResourcesRemoved=true and operatingBaselineUnchanged=true. Existing operating container IDs, image IDs, start timestamps and running states matched the baseline; web, company browser and DB remained healthy. This is metadata/health evidence, not a full comparison of operating database contents.
 
-Two cached test images were retained; no image prune or shared-base removal was performed. Metadata-only local execution evidence remains under ignored .runtime/team-physical-test/.
+Cached test images were retained. No shared image prune, generic down-v, existing volume deletion or operating-service restart was performed. Metadata and synthetic screenshots remain under ignored .runtime/team-physical-test/. No screenshot, profile, personal setting, actual member identifier or private audit record was committed.
 
 ## Git result
 
-The approved remote is https://github.com/alexjspark/bpt_notion_sync.git. Windows GCM listed only luahana; the GitHub CLI used the same account and repository permissions reported pull=true, push=false. Push was not attempted with that known insufficient permission. No new login, token grant, account switch or permission change was initiated. Repository authentication remains a separate pending user step.
+Official GCM browser authentication registered alexjspark. The native Computer Use read was stopped because it could not confidently determine the GitHub window URL; no alternate UI-control path was used. GCM itself completed, and normal Git receive-pack authorization and push succeeded using alexjspark for the exact approved remote:
+
+https://github.com/alexjspark/bpt_notion_sync.git
+
+The source commits through6a6735610dfc3ef5140b133dbf8302caa594d2d2 were verified equal between local HEAD and origin/main. No force push, visibility change, new repository, global Git setting change or luahana repository permission grant was made. The final report commit is verified separately at task completion.
+
+## Still outside this result
+
+- No real company/Notion login, colleague connection, member write or operational key generation occurred.
+- A protected persistent operational master loader is still unimplemented. Public test keys are not an operational secret-storage solution.
+- Real company login-cookie persistence across browser replacement was not tested; the reused profile was synthetic.
+- First-phase general memo/survey/template/calendar flow remains incomplete and was not completed by this test.
+- General risky writes and scheduling were not enabled.
