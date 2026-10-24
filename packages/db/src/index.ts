@@ -59,7 +59,7 @@ export async function migrate(): Promise<void> {
   await transaction(async (client) => {
     await client.query("SELECT pg_advisory_xact_lock(hashtext('trainer-sync-migration'))");
     await client.query('CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())');
-    for (const version of ['001_initial', '002_connections', '003_manual_sync', '004_notion_managed_state', '005_live_readonly_state', '006_company_review_code', '007_isolated_storage_tests', '008_oneoff_contact_save', '009_oneoff_profile_save', '010_sync_audit_events']) {
+    for (const version of ['001_initial', '002_connections', '003_manual_sync', '004_notion_managed_state', '005_live_readonly_state', '006_company_review_code', '007_isolated_storage_tests', '008_oneoff_contact_save', '009_oneoff_profile_save', '010_sync_audit_events', '011_team_tenants']) {
       const applied = await client.query('SELECT version FROM schema_migrations WHERE version = $1', [version]);
       if (!applied.rowCount) {
         const sql = await readFile(new URL(`../migrations/${version}.sql`, import.meta.url), 'utf8');

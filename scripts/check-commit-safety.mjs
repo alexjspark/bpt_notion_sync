@@ -1,5 +1,5 @@
 import{spawnSync}from'node:child_process';import{readFileSync}from'node:fs';import{resolve,relative}from'node:path';import{fileURLToPath}from'node:url';
-const DOCS=new Set(['docs/MILESTONE-1.md','docs/COLLEAGUE-TENANT-PLAN.md','docs/PORTABLE-CONFIG.md','docs/LOCAL-COMMIT-PREPARATION.md']);
+const DOCS=new Set(['docs/MILESTONE-1.md','docs/COLLEAGUE-TENANT-PLAN.md','docs/PORTABLE-CONFIG.md','docs/LOCAL-COMMIT-PREPARATION.md','docs/PHASE2-IMPLEMENTATION.md']);
 export function inspectStagedChanges({cwd=process.cwd(),forbiddenValues=[]}={}){
  const git=args=>{const r=spawnSync('git',args,{cwd,encoding:'utf8',maxBuffer:12*1024*1024});if(r.status!==0)throw Error('GIT_INDEX_READ_FAILED');return r.stdout;};
  const paths=git(['diff','--cached','--name-only','--diff-filter=ACMR','-z']).split('\0').filter(Boolean),problems=[];
