@@ -7,6 +7,7 @@ USER root
 COPY --from=novnc /usr/share/novnc /usr/share/novnc
 COPY --chown=pwuser:pwuser . /app
 WORKDIR /app
+RUN TEAM_PHYSICAL_TEST_BUILD_ONLY=true node --import tsx tests/physical/build-client.ts
 USER pwuser
 # No install, download, port publication, credentials or auto-start.
 CMD ["node", "--import", "tsx", "tests/physical/main.ts"]

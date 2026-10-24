@@ -19,3 +19,5 @@ private
 secrets
 **/notion-token.txt
 **/preview-hmac.txt
+
+packages/engine/src/generated/

@@ -28,3 +28,5 @@ docs/*
 !docs/LOCAL-COMMIT-PREPARATION.md
 
 !docs/PHASE2-IMPLEMENTATION.md
+
+packages/engine/src/generated/

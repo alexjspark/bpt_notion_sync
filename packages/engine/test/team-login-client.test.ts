@@ -1,0 +1,4 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{loadTeamLoginClient,TEAM_LOGIN_CLIENT_SOURCE}from'../src/team-login-client.ts';
+test('gateway dev fallback preserves the fixed noVNC client source',async()=>{const bytes=await loadTeamLoginClient(async()=>undefined);assert.equal(bytes.toString(),TEAM_LOGIN_CLIENT_SOURCE);assert.ok(bytes.toString().includes('websockify'));});
+test('gateway serves only bounded nonempty generated client bytes',async()=>{const bytes=Buffer.from('public bundled client');assert.deepEqual(await loadTeamLoginClient(async()=>bytes),bytes);for(const value of[Buffer.alloc(0),Buffer.alloc(1024*1024+1)])await assert.rejects(loadTeamLoginClient(async()=>value));});
+test('bundle load errors do not silently serve a replacement client',async()=>{await assert.rejects(loadTeamLoginClient(async()=>{throw Error('BUNDLE_INVALID');}));});

@@ -1,3 +1,4 @@
+import{loadTeamLoginClient}from'./team-login-client.ts';
 import{createServer,type IncomingMessage}from'node:http';
 import{connect,type Socket}from'node:net';
 import{readFile,realpath}from'node:fs/promises';
@@ -28,7 +29,7 @@ export function gatewayPath(request:IncomingMessage,origin:string,upgrade=false)
  return{sessionId,path};
 }
 const html='<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TrainerSync company login</title><link rel="stylesheet" href="./login.css"><header>본인 전용 회사 로그인 화면 · 비밀번호는 회사 사이트에 직접 입력하세요. <span id="status" role="status">연결 중</span></header><main id="screen"></main><script type="module" src="./login.js"></script></html>';
-const js="import RFB from './novnc/core/rfb.js';const status=document.getElementById('status');const url=new URL('./websockify',location.href);url.protocol=location.protocol==='https:'?'wss:':'ws:';const rfb=new RFB(document.getElementById('screen'),url.href);rfb.scaleViewport=true;rfb.resizeSession=false;rfb.addEventListener('connect',()=>status.textContent='연결됨');rfb.addEventListener('disconnect',()=>status.textContent='연결 종료: 설정 화면에서 상태를 확인하세요.');";
+
 const css='body{margin:0;background:#111827;color:#fff;font-family:system-ui}header{padding:14px;font-size:14px}#screen{height:calc(100vh - 58px);min-height:320px}';
 export async function loadNoVncAsset(relativePath:string):Promise<Buffer>{
  if(!relativePath.startsWith('novnc/')||relativePath.includes('..')||!/^novnc\/[A-Za-z0-9_./-]+$/.test(relativePath))throw new TeamError('NOT_FOUND',404);
@@ -49,7 +50,7 @@ export function createTeamBrowserGateway(options:GatewayOptions){
   try{
    const p=gatewayPath(req,options.origin);await authority(req,p.sessionId);
    if(!p.path){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'}).end(html);return;}
-   if(p.path==='login.js'||p.path==='login.css'){res.writeHead(200,{'Content-Type':p.path.endsWith('.js')?'text/javascript; charset=utf-8':'text/css; charset=utf-8'}).end(p.path.endsWith('.js')?js:css);return;}
+   if(p.path==='login.js'||p.path==='login.css'){res.writeHead(200,{'Content-Type':p.path.endsWith('.js')?'text/javascript; charset=utf-8':'text/css; charset=utf-8'}).end(p.path.endsWith('.js')?await loadTeamLoginClient():css);return;}
    const mime:Record<string,string>={'.js':'text/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.woff':'font/woff','.woff2':'font/woff2'};
    const type=mime[extname(p.path)];if(!type)throw new TeamError('NOT_FOUND',404);const data=await loader(p.path);if(data.length>1024*1024)throw new TeamError('NOT_FOUND',404);res.writeHead(200,{'Content-Type':type}).end(data);
   }catch(e){res.writeHead(e instanceof TeamError?e.status:403).end('BROWSER_ACCESS_DENIED');}
