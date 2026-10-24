@@ -8,7 +8,8 @@ The approved local test completed, including a rendered authenticated noVNC scre
 | --- | --- |
 | Docker browser sandbox | New test browsers used pwuser, privileged=false, no added capabilities, and the exact reviewed Playwright seccomp profile. No Docker browser used --no-sandbox. |
 | Tenant physical separation | Actual TCP probes from both A and B could not reach the other browser's VNC6080/CDP9222 or the control DB5432/web3000. The trusted gateway4315 positive control succeeded. Each browser had one tenant-internal network and no published ports. |
-| Account and destination boundaries | Synthetic A/B service logins, other-owner/anonymous browser rejection, invalid Origin rejection, own fake Notion destination acceptance and other destination rejection were exercised. No name-based member matching was added. |
+| Service account boundaries | Corrected sandbox-client A/B logins and other-owner/anonymous WS rejection passed. Host/Origin guards were also covered by selected native gateway tests. |
+| Fake Notion contract | Own-versus-other fixture destinations are covered by selected unit/DB-component checks. This is not a final sandboxed Notion UI E2E. |
 | Corrected Windows sandbox client | chromiumSandbox:true is explicit. A runtime guard inspected only the Chrome process owned by the test process; checkedProcesses=1, sandboxDisabled=false. |
 | Authenticated WS | Corrected clients received RFB data; other-user and anonymous requests produced actual403 responses. Timeouts were not counted as authorization denials. A10-second idle connection remained open. |
 | Lifecycle | Corrected-client runs verified UI cancellation, controlled synthetic expiry, profile reuse after cancellation/expiry, and logout. Logout was checked as action completion401, WS closure, then runner-confirmed browser removal. |
