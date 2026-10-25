@@ -6,6 +6,8 @@ ARG SOURCE_REVISION
 USER root
 WORKDIR /app
 COPY --from=novnc /usr/share/novnc /usr/share/novnc
+COPY --from=novnc /usr/share/doc/novnc/copyright /usr/share/doc/novnc/copyright
+COPY --from=novnc /usr/share/common-licenses/MPL-2.0 /usr/share/common-licenses/MPL-2.0
 COPY --chown=1000:1000 . /app
 RUN --network=none TEAM_CLIENT_BUILD_ONLY=true node --import tsx scripts/build-team-client.ts
 RUN --network=none npm run build:web
